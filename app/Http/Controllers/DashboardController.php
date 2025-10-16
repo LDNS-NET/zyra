@@ -8,7 +8,7 @@ use App\Models\Tenants\TenantLeads;
 use App\Models\Tenants\TenantTickets;
 use App\Models\Tenants\TenantMikrotik;
 use App\Models\Tenants\TenantPayment;
-use App\Models\Tenants\TenantSms;
+use App\Models\Tenants\TenantSMS;
 use App\Models\Tenants\TenantEquipment;
 use App\Models\Package;
 use Inertia\Inertia;
@@ -33,7 +33,7 @@ class DashboardController extends Controller
                 'wallet_id' => $tenant ? $tenant->wallet_id : null,
 
                 // Charts
-                'sms_chart' => $this->monthlyCount(TenantSms::class, 'created_at'),
+                'sms_chart' => $this->monthlyCount(TenantSMS::class, 'created_at'),
                 'payments_chart' => $this->monthlySum(TenantPayment::class, 'paid_at', 'amount'),
 
                 // User Distribution
@@ -80,8 +80,8 @@ class DashboardController extends Controller
 
                 // SMS
                 'sms' => [
-                    'total_sent' => TenantSms::count(),
-                    'sent_this_month' => TenantSms::whereMonth('created_at', $now->month)
+                    'total_sent' => TenantSMS::count(),
+                    'sent_this_month' => TenantSMS::whereMonth('created_at', $now->month)
                         ->whereYear('created_at', $now->year)
                         ->count(),
                 ],
