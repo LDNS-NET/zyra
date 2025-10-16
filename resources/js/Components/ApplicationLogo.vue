@@ -1,3 +1,3 @@
 <template>
-    <img src="/images/zyraisp.png" alt="Apartment Logo" class="h-10 w-auto" />
+    <img src="/images/zyraisp.png" alt="ZiSP Logo" class="h-10 w-auto" />
 </template>

@@ -2,70 +2,47 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
+    // NOTE: This model is used for super admins in the central DB and for tenant admins in tenant DBs only.
+    // Do not use for WiFi users (network users), which are managed in the network_users table per tenant.
+
     protected $fillable = [
         'name',
-        'phone',
-        'username',
         'email',
+        'phone',
         'password',
-        'subscription_expires_at',
-        'is_suspended',
-        'role',
+        'username',
+        'business_name',
+        'is_super_admin',
+        'email_verified_at',
+        'last_login_at',
+        
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
+    protected $casts = [
+        'email_verified_at'=> 'datetime',
+        'is_super_admin' => 'boolean',
+    ];
+
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
+    public function getIsSuperAdminAttribute(): bool
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'subscription_expires_at' => 'datetime',
-            'is_suspended' => 'boolean',
-        ];
+        return $this->attributes['is_super_admin'] ?? false;
     }
 
-    /**
-     * Check if user is admin (landlord/agent)
-     */
-    public function isAdmin(): bool
+    public function tenant()
     {
-        return $this->role === 'admin';
-    }
-
-    /**
-     * Check if user is renter
-     */
-    public function isRenter(): bool
-    {
-        return $this->role === 'renter';
+        return $this->belongsTo(Tenant::class);
     }
 }

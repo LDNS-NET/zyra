@@ -4,6 +4,7 @@ import './bootstrap';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
+import VueApexCharts from 'vue3-apexcharts';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
 // ✅ Vue Toastification
@@ -25,16 +26,12 @@ createInertiaApp({
     setup({ el, App, props, plugin }) {
         const vueApp = createApp({ render: () => h(App, props) });
 
-        vueApp.use(plugin).use(ZiggyVue);
+        // ✅ Core plugins
+        vueApp.use(plugin);
+        vueApp.use(ZiggyVue);
+        vueApp.use(VueApexCharts); // <-- ✅ ApexCharts added here
 
-        // ✅ Register Lucide icons globally
-        Object.entries(LucideIcons).forEach(([name, component]) => {
-            if (name && component && typeof component === 'object') {
-                vueApp.component(name, component);
-            }
-        });
-
-        // ✅ Use Toastification properly
+        // ✅ Toastification setup
         vueApp.use(Toast, {
             position: 'top-right',
             timeout: 3000,
@@ -45,6 +42,13 @@ createInertiaApp({
             showCloseButtonOnHover: true,
             closeButton: 'button',
             icon: true,
+        });
+
+        // ✅ Register Lucide icons globally
+        Object.entries(LucideIcons).forEach(([name, component]) => {
+            if (name && component && typeof component === 'object') {
+                vueApp.component(name, component);
+            }
         });
 
         vueApp.mount(el);
