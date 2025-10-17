@@ -165,220 +165,276 @@ const packagesByType = computed(() => {
 
         <div class="px-4 py-6 sm:px-6 lg:px-8">
             <!-- Filters -->
-            <div class="mb-4 flex gap-4">
+            <!-- Filter Buttons -->
+            <div class="mb-4 flex flex-wrap gap-3">
                 <button
                     v-for="type in ['all', 'hotspot', 'pppoe', 'static']"
                     :key="type"
                     @click="selectedFilter = type"
-                    class="rounded-full border px-4 py-1"
+                    class="rounded-full border px-4 py-1.5 text-sm font-medium transition-all duration-150"
                     :class="{
-                        'bg-blue-600 text-white': selectedFilter === type,
-                        'border-gray-300 bg-white text-gray-800':
+                        'border-blue-600 bg-blue-600 text-white shadow-sm dark:border-blue-500 dark:bg-blue-500':
+                            selectedFilter === type,
+                        'border-gray-300 bg-white text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700':
                             selectedFilter !== type,
                     }"
                 >
-                    {{ type.charAt(0).toUpperCase() + type.slice(1) }} ({{
-                        counts[type] || 0
-                    }})
+                    {{ type.charAt(0).toUpperCase() + type.slice(1) }}
+                    <span class="ml-1 text-xs opacity-80"
+                        >({{ counts[type] || 0 }})</span
+                    >
                 </button>
             </div>
 
-            <!-- bulk delete actions-->
+            <!-- Bulk Delete Actions -->
             <div
                 v-if="selectedUsers.length"
-                class="mb-4 flex items-center justify-between rounded border border-yellow-200 bg-yellow-50 p-3"
+                class="mb-4 flex flex-wrap items-center justify-between rounded-lg border border-yellow-300 bg-yellow-50 p-3 dark:border-yellow-700 dark:bg-yellow-900/30"
             >
-                <div class="flex gap-2">
-                    <DangerButton @click="bulkDelete"
-                        >Delete ({{ selectedUsers.length }})</DangerButton
-                    >
-                    <!-- You can add more bulk actions here -->
+                <div class="flex gap-3">
+                    <DangerButton @click="bulkDelete">
+                        Delete ({{ selectedUsers.length }})
+                    </DangerButton>
+                    <!-- Add more bulk actions here if needed -->
                 </div>
+
+                <p class="text-sm text-yellow-700 dark:text-yellow-300">
+                    {{ selectedUsers.length }} user<span
+                        v-if="selectedUsers.length > 1"
+                        >s</span
+                    >
+                    selected
+                </p>
             </div>
 
             <!-- Users Table -->
-
-            <div class="overflow-x-auto rounded-xl bg-white shadow">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="px-4 py-3">
-                                <input
-                                    type="checkbox"
-                                    :checked="
-                                        selectedUsers.length ===
-                                        users.data.length
-                                    "
-                                    @change="
-                                        selectedUsers = $event.target.checked
-                                            ? users.data.map((u) => u.id)
-                                            : []
-                                    "
-                                />
-                            </th>
-                            <th
-                                class="px-6 py-3 text-left text-sm font-semibold text-gray-700"
-                            >
-                                Username
-                            </th>
-                            <th
-                                class="px-4 py-3 text-left text-sm font-semibold text-gray-700"
-                            >
-                                Account No
-                            </th>
-                            <th
-                                class="px-4 py-3 text-left text-sm font-semibold text-gray-700"
-                            >
-                                Phone
-                            </th>
-                            <th
-                                class="px-4 py-3 text-left text-sm font-semibold text-gray-700"
-                            >
-                                Package
-                            </th>
-                            <th
-                                class="px-4 py-3 text-left text-sm font-semibold text-gray-700"
-                            >
-                                Expiry
-                            </th>
-                            <th
-                                class="px-4 py-3 text-left text-sm font-semibold text-gray-700"
-                            >
-                                Status
-                            </th>
-                            <th
-                                class="px-4 py-3 text-right text-sm font-semibold text-gray-700"
-                            >
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        <tr
-                            v-for="user in users.data"
-                            :key="user.id"
-                            class="hover:bg-gray-50"
-                        >
-                            <td class="px-4 py-3">
-                                <input
-                                    type="checkbox"
-                                    :value="user.id"
-                                    v-model="selectedUsers"
-                                />
-                            </td>
-                            <td class="px-6 py-3 font-medium">
-                                <Link
-                                    :href="route('users.show', user.id)"
-                                    class="block"
-                                >
-                                    <div class="font-bold text-gray-900">
-                                        {{ user.username }}
-                                    </div>
-                                    <div class="text-sm text-gray-600">
-                                        {{ user.full_name }}
-                                    </div>
-                                </Link>
-                            </td>
-
-                            <td
-                                class="px-4 py-3 font-mono text-xs text-gray-700"
-                            >
-                                <span v-if="user.account_number">{{
-                                    user.account_number?.substring(0, 10)
-                                }}</span>
-                                <span v-else>—</span>
-                            </td>
-                            <td class="px-4 py-3">{{ user.phone }}</td>
-                            <td class="px-4 py-3">
-                                {{ user.package?.name || '-' }}
-                            </td>
-                            <td class="px-4 py-3">{{ user.expiry_human }}</td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                                    :class="
-                                        user.is_online
-                                            ? 'bg-green-100 text-green-700'
-                                            : 'bg-gray-200 text-gray-700'
-                                    "
-                                >
-                                    {{ user.is_online ? 'Online' : 'Offline' }}
-                                </span>
-                            </td>
-                            <td
-                                class="flex justify-end gap-2 px-4 py-3 text-right"
-                            >
-                                <div class="relative inline-block text-left">
-                                    <button
-                                        @click="
-                                            user.showActions = !user.showActions
+            <div
+                class="overflow-x-auto rounded-xl border border-blue-400 bg-white shadow dark:bg-gray-900"
+            >
+                <!-- Table wrapper for responsiveness -->
+                <div class="w-full min-w-[600px] sm:min-w-full">
+                    <table
+                        class="w-full divide-y divide-gray-200 text-sm dark:divide-gray-700"
+                    >
+                        <thead class="bg-gray-50 dark:bg-gray-800">
+                            <tr>
+                                <th class="px-3 py-3">
+                                    <input
+                                        type="checkbox"
+                                        :checked="
+                                            selectedUsers.length ===
+                                            users.data.length
                                         "
-                                        class="text-gray-500 hover:text-gray-700 focus:outline-none"
+                                        @change="
+                                            selectedUsers = $event.target
+                                                .checked
+                                                ? users.data.map((u) => u.id)
+                                                : []
+                                        "
+                                    />
+                                </th>
+                                <th
+                                    class="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold sm:text-sm dark:text-blue-400"
+                                >
+                                    Username
+                                </th>
+                                <th
+                                    class="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold sm:text-sm dark:text-blue-400"
+                                >
+                                    Account No
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold sm:text-sm dark:text-blue-400"
+                                >
+                                    Phone
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold sm:text-sm dark:text-blue-400"
+                                >
+                                    Package
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold sm:text-sm dark:text-blue-400"
+                                >
+                                    Expiry
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold sm:text-sm dark:text-blue-400"
+                                >
+                                    Status
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-right text-xs font-semibold sm:text-sm dark:text-blue-400"
+                                >
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody
+                            class="divide-y divide-blue-200 dark:divide-blue-900"
+                        >
+                            <tr
+                                v-for="user in users.data"
+                                :key="user.id"
+                                class="transition hover:bg-gray-100 dark:hover:bg-gray-800"
+                            >
+                                <td class="px-3 py-3 align-top">
+                                    <input
+                                        type="checkbox"
+                                        :value="user.id"
+                                        v-model="selectedUsers"
+                                    />
+                                </td>
+
+                                <td class="px-4 py-3 align-top">
+                                    <Link
+                                        :href="route('users.show', user.id)"
+                                        class="block break-words font-semibold hover:text-blue-500 dark:hover:text-green-400"
                                     >
-                                        <span class="sr-only"
-                                            >Open actions</span
+                                        {{ user.username }}
+                                        <div
+                                            class="max-w-[160px] truncate text-xs text-gray-500 sm:max-w-none dark:text-gray-400"
                                         >
-                                        <svg
-                                            class="h-5 w-5"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <circle cx="12" cy="12" r="1.5" />
-                                            <circle cx="19.5" cy="12" r="1.5" />
-                                            <circle cx="4.5" cy="12" r="1.5" />
-                                        </svg>
-                                    </button>
+                                            {{ user.full_name }}
+                                        </div>
+                                    </Link>
+                                </td>
+
+                                <td
+                                    class="px-4 py-3 align-top font-mono text-xs"
+                                >
+                                    <span v-if="user.account_number">
+                                        {{
+                                            user.account_number?.substring(
+                                                0,
+                                                10,
+                                            )
+                                        }}
+                                    </span>
+                                    <span v-else>—</span>
+                                </td>
+
+                                <td class="px-4 py-3 align-top text-sm">
+                                    {{ user.phone }}
+                                </td>
+
+                                <td class="px-4 py-3 align-top text-sm">
+                                    {{ user.package?.name || '-' }}
+                                </td>
+
+                                <td
+                                    class="whitespace-nowrap px-4 py-3 align-top text-sm"
+                                >
+                                    {{ user.expiry_human }}
+                                </td>
+
+                                <td class="px-4 py-3 align-top">
+                                    <span
+                                        class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                                        :class="
+                                            user.is_online
+                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
+                                                : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                        "
+                                    >
+                                        {{
+                                            user.is_online
+                                                ? 'Online'
+                                                : 'Offline'
+                                        }}
+                                    </span>
+                                </td>
+
+                                <td class="px-4 py-3 text-right align-top">
                                     <div
-                                        v-if="user.showActions"
-                                        class="absolute right-0 z-10 mt-2 w-32 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5"
+                                        class="relative inline-block text-left"
                                     >
-                                        <div class="py-1">
-                                            <button
-                                                @click="
-                                                    viewUser(user);
-                                                    user.showActions = false;
-                                                "
-                                                class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                        <button
+                                            @click="
+                                                user.showActions =
+                                                    !user.showActions
+                                            "
+                                            class="rounded p-1 hover:bg-gray-100 focus:outline-none dark:hover:bg-gray-700"
+                                        >
+                                            <svg
+                                                class="h-5 w-5"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                viewBox="0 0 24 24"
                                             >
-                                                View
-                                            </button>
-                                            <button
-                                                @click="
-                                                    openEdit(user);
-                                                    user.showActions = false;
-                                                "
-                                                class="block w-full px-4 py-2 text-left text-sm text-blue-700 hover:bg-blue-50"
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                @click="
-                                                    remove(user.id);
-                                                    user.showActions = false;
-                                                "
-                                                class="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50"
-                                            >
-                                                Delete
-                                            </button>
+                                                <circle
+                                                    cx="12"
+                                                    cy="12"
+                                                    r="1.5"
+                                                />
+                                                <circle
+                                                    cx="19.5"
+                                                    cy="12"
+                                                    r="1.5"
+                                                />
+                                                <circle
+                                                    cx="4.5"
+                                                    cy="12"
+                                                    r="1.5"
+                                                />
+                                            </svg>
+                                        </button>
+
+                                        <div
+                                            v-if="user.showActions"
+                                            class="absolute right-0 z-10 mt-2 w-32 origin-top-right rounded-md border bg-white shadow-lg ring-1 ring-black ring-opacity-5 dark:border-gray-700 dark:bg-gray-800"
+                                        >
+                                            <div class="py-1">
+                                                <button
+                                                    @click="
+                                                        viewUser(user);
+                                                        user.showActions = false;
+                                                    "
+                                                    class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                                                >
+                                                    View
+                                                </button>
+                                                <button
+                                                    @click="
+                                                        openEdit(user);
+                                                        user.showActions = false;
+                                                    "
+                                                    class="block w-full px-4 py-2 text-left text-sm text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-700/50"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    @click="
+                                                        remove(user.id);
+                                                        user.showActions = false;
+                                                    "
+                                                    class="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-700/50"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="users.data.length === 0">
-                            <td
-                                colspan="6"
-                                class="py-6 text-center text-gray-500"
-                            >
-                                No users found.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-                <div>
-                  <Pagination class="mt-4" :links="users.links" />
-                </div> 
+                                </td>
+                            </tr>
+
+                            <tr v-if="users.data.length === 0">
+                                <td
+                                    colspan="8"
+                                    class="py-6 text-center text-gray-500 dark:text-gray-400"
+                                >
+                                    No users found.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="p-3 sm:p-4">
+                    <Pagination class="mt-3 sm:mt-4" :links="users.links" />
+                </div>
             </div>
         </div>
 
@@ -467,7 +523,7 @@ const packagesByType = computed(() => {
                         <select
                             v-model="form.type"
                             id="type"
-                            class="mt-1 w-full rounded-md border-gray-300"
+                            class="mt-1 w-full rounded-md border-gray-300 dark:bg-black"
                         >
                             <option value="hotspot">Hotspot</option>
                             <option value="pppoe">PPPoE</option>
@@ -481,7 +537,7 @@ const packagesByType = computed(() => {
                         <select
                             v-model="form.package_id"
                             id="package_id"
-                            class="mt-1 w-full rounded-md border-gray-300"
+                            class="mt-1 w-full rounded-md border-gray-300 dark:bg-black"
                         >
                             <option
                                 v-for="pkg in packagesByType"

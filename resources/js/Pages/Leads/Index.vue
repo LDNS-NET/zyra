@@ -114,12 +114,13 @@ function showAddress(address) {
     showAddressModal.value = true;
 }
 </script>
-
 <template>
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center justify-between">
-                <h2 class="text-xl font-bold">Leads</h2>
+            <div
+                class="sm:items-between flex justify-between sm:flex-row sm:justify-between"
+            >
+                <h2 class="text-lg font-bold sm:text-xl">Leads</h2>
                 <PrimaryButton
                     @click="openCreate"
                     class="flex items-center gap-2"
@@ -127,74 +128,84 @@ function showAddress(address) {
                     <Plus class="h-4 w-4" /> Add Lead
                 </PrimaryButton>
             </div>
-        </template>
-        <div
-            v-if="selectedTenantLeads.length"
-            class="mb-4 flex items-center justify-between rounded border border-yellow-200 bg-yellow-50 p-3"
-        >
-            <div class="flex gap-2">
-                <DangerButton @click="bulkDelete"
-                    >Delete ({{ selectedTenantLeads.length }})</DangerButton
-                >
-            </div>
-        </div>
 
-        <div class="mt-6 overflow-x-auto rounded-lg bg-white shadow">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <td class="px-4 py-3">
+            <!-- Bulk delete bar -->
+            <div
+                v-if="selectedTenantLeads.length"
+                class="mb-4 flex gap-3 rounded p-3 sm:flex-row sm:items-center"
+            >
+                <DangerButton @click="bulkDelete">
+                    Delete ({{ selectedTenantLeads.length }})
+                </DangerButton>
+            </div>
+        </template>
+
+        <!-- Table container -->
+        <div
+            class="mt-4 w-full overflow-x-auto rounded-lg border border-blue-500 bg-gray-100 shadow dark:bg-gray-900"
+        >
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead>
+                    <tr class="bg-gray-50 dark:bg-gray-800">
+                        <td class="px-3 py-2">
                             <input type="checkbox" v-model="selectAll" />
                         </td>
                         <th
-                            class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
+                            class="px-3 py-2 text-left font-semibold text-blue-500"
                         >
                             Name
                         </th>
                         <th
-                            class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
+                            class="px-3 py-2 text-left font-semibold text-blue-500"
                         >
                             Phone
                         </th>
                         <th
-                            class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
+                            class="px-3 py-2 text-left font-semibold text-blue-500"
                         >
                             Email
                         </th>
                         <th
-                            class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
+                            class="px-3 py-2 text-left font-semibold text-blue-500"
                         >
                             Address
                         </th>
                         <th
-                            class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
+                            class="px-3 py-2 text-left font-semibold text-blue-500"
                         >
                             Status
                         </th>
                         <th
-                            class="px-4 py-2 text-right text-xs font-semibold text-gray-600"
+                            class="px-3 py-2 text-right font-semibold text-blue-500"
                         >
                             Actions
                         </th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
+
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                     <tr
                         v-for="lead in leads.data"
                         :key="lead.id"
-                        class="hover:bg-gray-50"
+                        class="hover:bg-blue-100 dark:hover:bg-gray-700"
                     >
-                        <td class="px-6 py-3">
+                        <td class="px-3 py-2">
                             <input
                                 type="checkbox"
                                 :value="lead.id"
                                 v-model="selectedTenantLeads"
                             />
                         </td>
-                        <td class="px-4 py-2">{{ lead.name }}</td>
-                        <td class="px-4 py-2">{{ lead.phone_number }}</td>
-                        <td class="px-4 py-2">{{ lead.email_address }}</td>
-                        <td class="px-4 py-2">
+                        <td class="whitespace-nowrap px-3 py-2">
+                            {{ lead.name }}
+                        </td>
+                        <td class="whitespace-nowrap px-3 py-2">
+                            {{ lead.phone_number }}
+                        </td>
+                        <td class="whitespace-nowrap px-3 py-2">
+                            {{ lead.email_address }}
+                        </td>
+                        <td class="max-w-[120px] truncate px-3 py-2">
                             <span
                                 @click="showAddress(lead.address)"
                                 class="cursor-pointer text-green-600 hover:underline"
@@ -202,8 +213,8 @@ function showAddress(address) {
                                 {{ truncateWords(lead.address, 1) }}
                             </span>
                         </td>
-                        <td class="px-4 py-2">{{ lead.status || '—' }}</td>
-                        <td class="flex justify-end gap-2 px-4 py-2 text-right">
+                        <td class="px-3 py-2">{{ lead.status || '—' }}</td>
+                        <td class="flex justify-end gap-2 px-3 py-2">
                             <button
                                 @click="openEdit(lead)"
                                 class="text-blue-600 hover:underline"
@@ -218,9 +229,10 @@ function showAddress(address) {
                             </button>
                         </td>
                     </tr>
+
                     <tr v-if="leads.data.length === 0">
                         <td
-                            colspan="6"
+                            colspan="7"
                             class="py-6 text-center text-sm text-gray-500"
                         >
                             No leads found.
@@ -228,9 +240,12 @@ function showAddress(address) {
                     </tr>
                 </tbody>
             </table>
-        </div>
-        <Pagination :links="leads.links" />
 
+            <!-- Pagination -->
+            <Pagination :links="leads.links" class="m-4" />
+        </div>
+
+        <!-- Create/Edit Modal -->
         <Modal :show="showModal" @close="showModal = false">
             <div class="p-6">
                 <h2 class="mb-4 text-lg font-semibold">
@@ -296,17 +311,11 @@ function showAddress(address) {
                         <select
                             v-model="form.status"
                             id="status"
-                            class="mt-1 block w-full rounded-md border-gray-300"
+                            class="mt-1 block w-full rounded-md border-gray-300 dark:bg-gray-800"
                         >
-                            <option class="text-red-500" value="new">
-                                New
-                            </option>
-                            <option class="text-amber-500" value="contacted">
-                                Contacted
-                            </option>
-                            <option class="text-green-600" value="converted">
-                                Converted
-                            </option>
+                            <option value="new">New</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="converted">Converted</option>
                         </select>
                         <InputError
                             :message="form.errors.status"
@@ -314,7 +323,9 @@ function showAddress(address) {
                         />
                     </div>
 
-                    <div class="flex justify-end gap-3">
+                    <div
+                        class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
+                    >
                         <DangerButton type="button" @click="showModal = false">
                             <X class="mr-1 h-4 w-4" /> Cancel
                         </DangerButton>
@@ -327,10 +338,13 @@ function showAddress(address) {
             </div>
         </Modal>
 
+        <!-- Address Modal -->
         <Modal :show="showAddressModal" @close="showAddressModal = false">
             <div class="p-6">
                 <h2 class="mb-4 text-lg font-semibold">Full Address</h2>
-                <p class="text-gray-700">{{ fullAddress }}</p>
+                <p class="text-gray-700 dark:text-gray-300">
+                    {{ fullAddress }}
+                </p>
                 <div class="mt-4 text-right">
                     <PrimaryButton @click="showAddressModal = false"
                         >Close</PrimaryButton

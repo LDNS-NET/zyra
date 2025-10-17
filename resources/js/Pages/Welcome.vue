@@ -329,24 +329,26 @@ const howItWorksSteps = [
 
         <!-- CTA -->
         <section
-            class="mx-auto max-w-7xl bg-gradient-to-r px-64 py-2 text-center"
+            class="mx-auto max-w-7xl bg-gradient-to-r px-6 py-8 text-center sm:px-12 md:px-32 lg:px-48 xl:px-64"
         >
             <div
-                class="rounded-xl border border-black px-8 py-4 dark:border-blue-500"
+                class="rounded-xl border border-black px-6 py-4 dark:border-blue-500"
             >
                 <h2
-                    class="mb-6 text-4xl font-extrabold text-gray-900 dark:text-white"
+                    class="mb-6 text-3xl font-extrabold text-gray-900 sm:text-4xl dark:text-white"
                 >
                     Ready to Supercharge Your ISP?
                 </h2>
-                <p class="mb-10 text-xl text-gray-700 dark:text-gray-300">
+                <p
+                    class="mb-8 text-lg text-gray-700 sm:text-xl dark:text-gray-300"
+                >
                     Let Zyraispay help you automate billing, optimize networks,
                     and grow with confidence.
                 </p>
                 <Link
                     v-if="canRegister"
                     :href="route('register')"
-                    class="inline-flex transform items-center rounded-lg bg-green-500 px-10 py-5 text-xl font-bold text-white shadow-xl transition hover:scale-105 hover:bg-green-600"
+                    class="inline-flex items-center justify-center rounded-lg bg-green-500 px-8 py-4 text-lg font-bold text-white shadow-xl transition-transform hover:scale-105 hover:bg-green-600 sm:text-xl"
                 >
                     Get Started Free
                     <svg

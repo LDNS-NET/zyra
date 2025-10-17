@@ -4,14 +4,14 @@ import { router, useForm } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Modal from '@/Components/Modal.vue';
 import InputLabel from '@/Components/InputLabel.vue';
-import TextInput from '@/Components/TextInput.vue';
+//import TextInput from '@/Components/TextInput.vue';
 import TextArea from '@/Components/TextArea.vue';
-import SelectInput from '@/Components/SelectInput.vue';
+//import SelectInput from '@/Components/SelectInput.vue';
 import InputError from '@/Components/InputError.vue';
 import Pagination from '@/Components/Pagination.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import DangerButton from '@/Components/DangerButton.vue';
-import { Plus, Save, X, Edit, Trash2, Check } from 'lucide-vue-next';
+import { Plus, Save, X, Edit, Trash2, CheckCheck } from 'lucide-vue-next';
 
 const props = defineProps({
     tickets: Object,
@@ -168,158 +168,181 @@ function showDescription(description) {
             </div>
         </template>
 
-        <div
-            v-if="selectedTenantTickets.length"
-            class="mb-4 flex items-center justify-between rounded border border-yellow-200 bg-yellow-50 p-3"
-        >
-            <span class="text-sm font-medium text-yellow-800"
-                >{{ selectedTenantTickets.length }} selected</span
-            >
-            <div class="flex gap-2">
-                <DangerButton @click="bulkDelete"
-                    >Delete ({{ selectedTenantTickets.length }})</DangerButton
+        <div>
+            <div class="flex justify-between">
+                <div
+                    v-if="selectedTenantTickets.length"
+                    class="mb-4 flex items-center justify-between rounded p-3"
                 >
+                    <div class="flex gap-2">
+                        <DangerButton @click="bulkDelete"
+                            >Delete ({{
+                                selectedTenantTickets.length
+                            }})</DangerButton
+                        >
+                    </div>
+                </div>
+
+                <!-- Filter Buttons -->
+                <div class="mt-4 flex gap-2">
+                    <PrimaryButton
+                        @click="changeFilter('open')"
+                        :class="{
+                            'bg-blue-700': props.statusFilter === 'open',
+                        }"
+                    >
+                        Open
+                    </PrimaryButton>
+                    <PrimaryButton
+                        @click="changeFilter('closed')"
+                        :class="{
+                            'bg-blue-700': props.statusFilter === 'closed',
+                        }"
+                    >
+                        Closed
+                    </PrimaryButton>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div
+                class="mt-4 overflow-x-auto rounded-lg border border-blue-400 bg-gray-200 shadow dark:bg-black"
+            >
+                <table class="min-w-full table-fixed divide-y divide-blue-400">
+                    <thead class="">
+                        <tr>
+                            <td class="w-6 px-2 py-2 text-center">
+                                <input
+                                    type="checkbox"
+                                    v-model="selectAll"
+                                    class="h-4 w-4 align-middle accent-blue-600"
+                                />
+                            </td>
+
+                            <th
+                                class="px-4 py-2 text-left text-xs font-semibold text-blue-600"
+                            >
+                                Ticket #
+                            </th>
+                            <th
+                                class="px-4 py-2 text-left text-xs font-semibold text-blue-600"
+                            >
+                                Client
+                            </th>
+                            <th
+                                class="px-4 py-2 text-left text-xs font-semibold text-blue-600"
+                            >
+                                Type
+                            </th>
+                            <th
+                                class="px-4 py-2 text-left text-xs font-semibold text-blue-600"
+                            >
+                                Priority
+                            </th>
+                            <th
+                                class="px-4 py-2 text-left text-xs font-semibold text-blue-600"
+                            >
+                                Status
+                            </th>
+                            <th
+                                class="px-4 py-2 text-left text-xs font-semibold text-blue-600"
+                            >
+                                Description
+                            </th>
+                            <th
+                                class="px-4 py-2 text-right text-xs font-semibold text-blue-600"
+                            >
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700">
+                        <tr
+                            v-for="ticket in tickets.data"
+                            :key="ticket.id"
+                            class="hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                            <td class="w-6 px-2 py-2 text-center">
+                                <input
+                                    type="checkbox"
+                                    :value="ticket.id"
+                                    v-model="selectedTenantTickets"
+                                    class="h-4 w-4 align-middle accent-blue-600"
+                                />
+                            </td>
+
+                            <td class="px-4 py-2 font-mono text-blue-600">
+                                {{ ticket.ticket_number }}
+                            </td>
+                            <td class="px-4 py-2">
+                                {{
+                                    ticket.client?.full_name ||
+                                    ticket.client?.name ||
+                                    '—'
+                                }}
+                            </td>
+                            <td class="px-4 py-2 capitalize">
+                                {{ ticket.client_type }}
+                            </td>
+                            <td class="px-4 py-2 capitalize">
+                                {{ ticket.priority }}
+                            </td>
+                            <td class="px-4 py-2 capitalize">
+                                {{ ticket.status }}
+                            </td>
+                            <td class="px-4 py-2">
+                                <span
+                                    @click="showDescription(ticket.description)"
+                                    class="cursor-pointer text-green-600 hover:underline"
+                                >
+                                    {{
+                                        truncateWords(ticket.description, 1)
+                                    }}</span
+                                >
+                            </td>
+                            <td
+                                class="flex justify-end gap-2 px-4 py-2 text-right"
+                            >
+                                <button
+                                    @click="openResolve(ticket)"
+                                    class="text-green-600 hover:underline"
+                                    v-if="ticket.status === 'open'"
+                                >
+                                    <CheckCheck class="h-4 w-4" />
+                                </button>
+
+                                <button
+                                    @click="openEdit(ticket)"
+                                    class="text-blue-600 hover:underline"
+                                >
+                                    <Edit class="h-4 w-4" />
+                                </button>
+                                <button
+                                    @click="remove(ticket.id)"
+                                    class="text-red-600 hover:underline"
+                                >
+                                    <Trash2 class="h-4 w-4" />
+                                </button>
+                            </td>
+                        </tr>
+                        <tr v-if="tickets.data.length === 0">
+                            <td
+                                colspan="7"
+                                class="py-6 text-center text-sm text-gray-500"
+                            >
+                                No tickets found.
+                            </td>
+                        </tr>
+                    </tbody>
+                    <!-- Pagination -->
+                    <Pagination
+                        :links="tickets.links"
+                        class="w-6 px-2 py-2 text-center"
+                    />
+                </table>
             </div>
         </div>
 
-        <!-- Filter Buttons -->
-        <div class="mt-4 flex gap-2">
-            <PrimaryButton
-                @click="changeFilter('open')"
-                :class="{ 'bg-blue-700': props.statusFilter === 'open' }"
-            >
-                Open
-            </PrimaryButton>
-            <PrimaryButton
-                @click="changeFilter('closed')"
-                :class="{ 'bg-blue-700': props.statusFilter === 'closed' }"
-            >
-                Closed
-            </PrimaryButton>
-        </div>
-
-        <!-- Table -->
-        <div class="mt-6 overflow-x-auto rounded-lg bg-white shadow">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <td class="px-4 py-3">
-                            <input type="checkbox" v-model="selectAll" />
-                        </td>
-                        <th
-                            class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
-                        >
-                            Ticket #
-                        </th>
-                        <th
-                            class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
-                        >
-                            Client
-                        </th>
-                        <th
-                            class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
-                        >
-                            Type
-                        </th>
-                        <th
-                            class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
-                        >
-                            Priority
-                        </th>
-                        <th
-                            class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
-                        >
-                            Status
-                        </th>
-                        <th
-                            class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
-                        >
-                            Description
-                        </th>
-                        <th
-                            class="px-4 py-2 text-right text-xs font-semibold text-gray-600"
-                        >
-                            Actions
-                        </th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                    <tr
-                        v-for="ticket in tickets.data"
-                        :key="ticket.id"
-                        class="hover:bg-gray-50"
-                    >
-                        <td class="px-6 py-3">
-                            <input
-                                type="checkbox"
-                                :value="ticket.id"
-                                v-model="selectedTenantTickets"
-                            />
-                        </td>
-                        <td class="px-4 py-2 font-mono text-blue-600">
-                            {{ ticket.ticket_number }}
-                        </td>
-                        <td class="px-4 py-2">
-                            {{
-                                ticket.client?.full_name ||
-                                ticket.client?.name ||
-                                '—'
-                            }}
-                        </td>
-                        <td class="px-4 py-2 capitalize">
-                            {{ ticket.client_type }}
-                        </td>
-                        <td class="px-4 py-2 capitalize">
-                            {{ ticket.priority }}
-                        </td>
-                        <td class="px-4 py-2 capitalize">
-                            {{ ticket.status }}
-                        </td>
-                        <td class="px-4 py-2">
-                            <span
-                                @click="showDescription(ticket.description)"
-                                class="cursor-pointer text-green-600 hover:underline"
-                            >
-                                {{ truncateWords(ticket.description, 1) }}</span
-                            >
-                        </td>
-                        <td class="flex justify-end gap-2 px-4 py-2 text-right">
-                            <button
-                                @click="openResolve(ticket)"
-                                class="text-green-600 hover:underline"
-                                v-if="ticket.status === 'open'"
-                            >
-                                <Check class="h-4 w-4" />
-                            </button>
-
-                            <button
-                                @click="openEdit(ticket)"
-                                class="text-blue-600 hover:underline"
-                            >
-                                <Edit class="h-4 w-4" />
-                            </button>
-                            <button
-                                @click="remove(ticket.id)"
-                                class="text-red-600 hover:underline"
-                            >
-                                <Trash2 class="h-4 w-4" />
-                            </button>
-                        </td>
-                    </tr>
-                    <tr v-if="tickets.data.length === 0">
-                        <td
-                            colspan="7"
-                            class="py-6 text-center text-sm text-gray-500"
-                        >
-                            No tickets found.
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Pagination -->
-        <Pagination :links="tickets.links" class="mt-6" />
         <!--Resolving modal-->
         <Modal :show="!!resolving" @close="resolving = null">
             <div class="space-y-4 p-6">

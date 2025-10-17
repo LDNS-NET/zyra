@@ -3,7 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { useForm } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
-import { Trash, Eye, List } from 'lucide-vue-next';
+import { Trash, Eye, List, Gift } from 'lucide-vue-next';
 
 // Basic UI Components
 import TextInput from '@/Components/TextInput.vue';
@@ -159,16 +159,32 @@ const openCreateModal = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div
-                class="flex items-center gap-3 text-3xl font-extrabold leading-tight text-gray-800"
-            >
-                <List class="flex h-7 w-7 gap-3 text-blue-600" /> Vouchers
+            <div class="mt-4 flex justify-between">
+                <div
+                    class="flex items-center gap-3 text-3xl font-extrabold leading-tight text-gray-800"
+                >
+                    <Gift class="flex h-7 w-7 gap-3 text-blue-600" /> Vouchers
+                </div>
+                <div>
+                    <Link :href="route('vouchers.create')">
+                        <PrimaryButton
+                            class="bg-green-500 hover:bg-green-700"
+                            @click="openCreateModal"
+                        >
+                            New Voucher
+                        </PrimaryButton>
+                    </Link>
+                </div>
             </div>
         </template>
 
         <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-            <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                <div class="border-b border-gray-200 bg-white p-6">
+            <div
+                class="overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-black"
+            >
+                <div
+                    class="border border-blue-400 bg-gray-200 p-6 dark:bg-black"
+                >
                     <!-- Bulk Delete & Create -->
                     <div class="mb-6 flex items-center justify-between">
                         <!-- ✅ Only show bulk delete if at least one voucher is selected -->
@@ -186,111 +202,144 @@ const openCreateModal = () => {
                                 >
                             </PrimaryButton>
                         </div>
-
-                        <Link :href="route('vouchers.create')">
-                            <PrimaryButton
-                                class="bg-green-500 hover:bg-green-700"
-                                @click="openCreateModal"
-                            >
-                                New Voucher
-                            </PrimaryButton>
-                        </Link>
                     </div>
 
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
+                    <div class="overflow-x-auto rounded-xl dark:bg-black">
+                        <table class="min-w-full divide-y divide-blue-400">
+                            <thead
+                                class="bg-gray-100 text-blue-800 dark:bg-gray-900 dark:text-blue-300"
+                            >
                                 <tr>
-                                    <th class="px-6 py-3">
+                                    <!-- Select All -->
+                                    <th
+                                        scope="col"
+                                        class="px-3 py-3 text-center"
+                                    >
                                         <Checkbox
                                             v-model:checked="selectAll"
                                             @change="toggleSelectAll"
+                                            class="h-4 w-4 accent-indigo-600 dark:accent-indigo-500"
                                         />
                                     </th>
+
+                                    <!-- Column Headers -->
                                     <th
                                         scope="col"
-                                        class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                                        class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                                     >
                                         Code
                                     </th>
                                     <th
                                         scope="col"
-                                        class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                                        class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                                     >
                                         Value
                                     </th>
                                     <th
                                         scope="col"
-                                        class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                                        class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                                     >
                                         Type
                                     </th>
                                     <th
                                         scope="col"
-                                        class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                                        class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                                     >
                                         Usage Limit
                                     </th>
                                     <th
                                         scope="col"
-                                        class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                                        class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                                     >
                                         Expires At
                                     </th>
                                     <th
                                         scope="col"
-                                        class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                                        class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                                     >
                                         Active
                                     </th>
-                                    <th scope="col" class="relative px-6 py-3">
-                                        <span class="sr-only">Actions</span>
+                                    <th
+                                        scope="col"
+                                        class="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider"
+                                    >
+                                        Actions
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-gray-200 bg-white">
+
+                            <tbody
+                                class="divide-y divide-gray-200 dark:divide-gray-700"
+                            >
                                 <tr
                                     v-for="voucher in vouchers.data"
                                     :key="voucher.id"
+                                    class="transition-colors hover:bg-blue-200 dark:hover:bg-gray-800"
                                 >
-                                    <td class="px-6 py-4">
+                                    <!-- Checkbox -->
+                                    <td class="w-6 px-2 py-2 text-center">
                                         <Checkbox
                                             :value="voucher.id"
                                             v-model:checked="selected"
+                                            class="h-4 w-4 accent-indigo-600 dark:accent-indigo-500"
                                         />
                                     </td>
+
+                                    <!-- Voucher Code -->
                                     <td
-                                        class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900"
+                                        class="whitespace-nowrap px-3 py-3 text-sm font-medium text-gray-900 dark:text-gray-100"
                                     >
                                         {{ voucher.code }}
                                     </td>
+
+                                    <!-- Value -->
                                     <td
-                                        class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"
+                                        class="whitespace-nowrap px-3 py-3 text-sm text-gray-600 dark:text-gray-300"
                                     >
                                         {{ voucher.value }}
                                     </td>
+
+                                    <!-- Type -->
                                     <td
-                                        class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"
+                                        class="whitespace-nowrap px-3 py-3 text-sm text-gray-600 dark:text-gray-300"
                                     >
                                         {{ voucher.type }}
                                     </td>
+
+                                    <!-- Usage Limit -->
                                     <td
-                                        class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"
+                                        class="whitespace-nowrap px-3 py-3 text-sm text-gray-600 dark:text-gray-300"
                                     >
                                         {{ voucher.usage_limit || 'Unlimited' }}
                                     </td>
+
+                                    <!-- Expiration Date -->
                                     <td
-                                        class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"
+                                        class="whitespace-nowrap px-3 py-3 text-sm text-gray-600 dark:text-gray-300"
                                     >
                                         {{ formatDate(voucher.expires_at) }}
                                     </td>
+
+                                    <!-- Active -->
                                     <td
-                                        class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"
+                                        class="whitespace-nowrap px-3 py-3 text-sm text-gray-600 dark:text-gray-300"
                                     >
-                                        {{ voucher.is_active ? 'Yes' : 'No' }}
+                                        <span
+                                            :class="
+                                                voucher.is_active
+                                                    ? 'font-semibold text-green-600 dark:text-green-400'
+                                                    : 'font-semibold text-red-600 dark:text-red-400'
+                                            "
+                                        >
+                                            {{
+                                                voucher.is_active ? 'Yes' : 'No'
+                                            }}
+                                        </span>
                                     </td>
+
+                                    <!-- Actions -->
                                     <td
-                                        class="whitespace-nowrap px-6 py-4 text-right text-sm font-medium"
+                                        class="whitespace-nowrap px-3 py-3 text-right text-sm font-medium"
                                     >
                                         <Link
                                             :href="
@@ -299,19 +348,20 @@ const openCreateModal = () => {
                                                     voucher.id,
                                                 )
                                             "
-                                            class="mr-2 text-indigo-600 hover:text-indigo-900"
-                                            ><Eye
-                                                class="m-5 inline-block h-5 align-middle"
+                                            class="mr-2 text-indigo-600 transition hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                        >
+                                            <Eye
+                                                class="inline-block h-5 w-5 align-middle"
                                             />
                                         </Link>
-                                        <!--<Link :href="route('tenants.vouchers.edit', voucher.id)" class="text-blue-600 hover:text-blue-900 mr-2"><Pencil class="w-5 h-5 text-green-800 inline-block align-middle"/> </Link> -->
+
                                         <button
                                             @click="
                                                 confirmVoucherDeletion(
                                                     voucher.id,
                                                 )
                                             "
-                                            class="text-red-600 hover:text-red-900"
+                                            class="text-red-600 transition hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                                         >
                                             <Trash
                                                 class="inline-block h-5 w-5 align-middle"
@@ -319,10 +369,12 @@ const openCreateModal = () => {
                                         </button>
                                     </td>
                                 </tr>
+
+                                <!-- Empty state -->
                                 <tr v-if="vouchers.data.length === 0">
                                     <td
                                         colspan="8"
-                                        class="whitespace-nowrap px-6 py-4 text-center text-sm text-gray-500"
+                                        class="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400"
                                     >
                                         No vouchers found.
                                     </td>

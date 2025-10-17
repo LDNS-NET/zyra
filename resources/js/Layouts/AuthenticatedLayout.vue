@@ -343,7 +343,7 @@ watch(theme, (val) => {
             <!-- Header -->
             <header
                 v-if="$slots.header"
-                class="border bg-cyan-100 shadow transition-colors duration-300 dark:bg-cyan-900"
+                class="border bg-cyan-100 transition-colors duration-300 dark:bg-cyan-900"
             >
                 <div
                     class="mx-auto max-w-7xl px-2 py-2 text-gray-900 sm:px-4 lg:px-6 dark:text-white"

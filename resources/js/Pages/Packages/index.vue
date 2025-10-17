@@ -165,41 +165,45 @@ function remove(id) {
             </div>
         </div>
 
-        <div class="px-4 py-6 sm:px-6 lg:px-8">
-            <div class="overflow-x-auto rounded-xl bg-white shadow">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+        <div
+            class="rounded-xl border border-blue-400 bg-gray-200 px-4 py-6 sm:px-6 lg:px-8 dark:border-white dark:bg-black"
+        >
+            <div class="overflow-x-auto rounded-xl shadow">
+                <table
+                    class="min-w-full divide-y-2 divide-black dark:divide-blue-200"
+                >
+                    <thead class="font-extrabold dark:text-blue-400">
                         <tr>
                             <td class="px-4 py-3">
                                 <input type="checkbox" v-model="selectAll" />
                             </td>
                             <th
-                                class="px-6 py-3 text-left text-xs font-semibold text-gray-600"
+                                class="px-6 py-3 text-left text-xs font-extrabold"
                             >
                                 Name
                             </th>
                             <th
-                                class="px-4 py-3 text-left text-xs font-semibold text-gray-600"
+                                class="px-4 py-3 text-left text-xs font-semibold"
                             >
                                 Type
                             </th>
                             <th
-                                class="px-4 py-3 text-left text-xs font-semibold text-gray-600"
+                                class="px-4 py-3 text-left text-xs font-semibold"
                             >
                                 Speed
                             </th>
                             <th
-                                class="px-4 py-3 text-left text-xs font-semibold text-gray-600"
+                                class="px-4 py-3 text-left text-xs font-semibold"
                             >
                                 Price
                             </th>
                             <th
-                                class="px-4 py-3 text-left text-xs font-semibold text-gray-600"
+                                class="px-4 py-3 text-left text-xs font-semibold"
                             >
                                 Duration
                             </th>
                             <th
-                                class="px-4 py-3 text-right text-xs font-semibold text-gray-600"
+                                class="px-4 py-3 text-right text-xs font-semibold"
                             >
                                 Actions
                             </th>

@@ -43,16 +43,21 @@ const cancelForm = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
+            <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100">
                 Generate Vouchers
             </h2>
         </template>
 
         <div class="py-12">
             <div class="mx-auto max-w-3xl sm:px-6 lg:px-8">
-                <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                    <div class="border-b border-gray-200 bg-white p-6">
+                <div
+                    class="overflow-hidden rounded-2xl border border-black bg-gray-200 shadow-lg dark:border-blue-700 dark:bg-gray-900"
+                >
+                    <div
+                        class="border-b border-blue-200 p-6 dark:border-green-400"
+                    >
                         <form @submit.prevent="submitForm" class="space-y-6">
+                            <!-- Voucher Prefix -->
                             <div>
                                 <InputLabel
                                     for="prefix"
@@ -61,7 +66,8 @@ const cancelForm = () => {
                                 <TextInput
                                     id="prefix"
                                     v-model="form.prefix"
-                                    class="mt-1 block w-full"
+                                    class="mt-1 block w-full dark:bg-gray-800 dark:text-gray-100"
+                                    placeholder="e.g. WIFI"
                                 />
                                 <InputError
                                     :message="form.errors.prefix"
@@ -69,6 +75,7 @@ const cancelForm = () => {
                                 />
                             </div>
 
+                            <!-- Voucher Code Length -->
                             <div>
                                 <InputLabel
                                     for="length"
@@ -78,9 +85,9 @@ const cancelForm = () => {
                                     id="length"
                                     type="number"
                                     v-model="form.length"
-                                    class="mt-1 block w-full"
                                     min="4"
                                     max="20"
+                                    class="mt-1 block w-full dark:bg-gray-800 dark:text-gray-100"
                                 />
                                 <InputError
                                     :message="form.errors.length"
@@ -88,17 +95,18 @@ const cancelForm = () => {
                                 />
                             </div>
 
+                            <!-- Quantity -->
                             <div>
                                 <InputLabel
                                     for="quantity"
-                                    value="Number of Vouchers to Generate"
+                                    value="Number of Vouchers"
                                 />
                                 <TextInput
                                     id="quantity"
                                     type="number"
                                     v-model="form.quantity"
-                                    class="mt-1 block w-full"
                                     min="1"
+                                    class="mt-1 block w-full dark:bg-gray-800 dark:text-gray-100"
                                 />
                                 <InputError
                                     :message="form.errors.quantity"
@@ -106,14 +114,16 @@ const cancelForm = () => {
                                 />
                             </div>
 
+                            <!-- Internet Package -->
                             <div>
                                 <InputLabel
                                     for="package_id"
                                     value="Internet Package"
                                 />
                                 <select
+                                    id="package_id"
                                     v-model="form.package_id"
-                                    class="mt-1 block w-full rounded-md border-gray-300"
+                                    class="mt-1 block w-full rounded-md border-gray-300 bg-white text-gray-900 focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                                 >
                                     <option value="" disabled>
                                         Select Package
@@ -132,16 +142,19 @@ const cancelForm = () => {
                                 />
                             </div>
 
-                            <div class="flex justify-end">
+                            <!-- Actions -->
+                            <div class="flex justify-end gap-3">
                                 <DangerButton
                                     type="button"
                                     @click="cancelForm"
-                                    class="mr-4"
-                                    >Cancel</DangerButton
+                                    :disabled="form.processing"
+                                    class="px-4"
                                 >
-                                <PrimaryButton :disabled="form.processing"
-                                    >Generate</PrimaryButton
-                                >
+                                    Cancel
+                                </DangerButton>
+                                <PrimaryButton :disabled="form.processing">
+                                    Generate
+                                </PrimaryButton>
                             </div>
                         </form>
                     </div>

@@ -90,7 +90,7 @@ const getGreeting = () => {
                         </button>
                     </template>
                 </div>
-                <div v-if="expiresAt && daysRemaining <= 31" class="ml-4">
+                <div v-if="expiresAt && daysRemaining <= 30" class="ml-4">
                     <PrimaryButton
                         class="rounded-xl px-3 py-1 hover:bg-blue-600 dark:bg-green-400 dark:hover:bg-green-600"
                         ><a
@@ -327,13 +327,7 @@ const getGreeting = () => {
             <!-- CHARTS -->
             <DashboardSection title="Analytics & Trends">
                 <div
-                    class="grid gap-6"
-                    style="
-                        grid-template-columns: repeat(
-                            auto-fit,
-                            minmax(320px, 1fr)
-                        );
-                    "
+                    class="grid grid-cols-1 gap-6 px-4 sm:grid-cols-2 sm:px-6 md:px-8 lg:grid-cols-3 lg:px-12 xl:px-16"
                 >
                     <ChartCard
                         title="User Type Distribution"
@@ -349,7 +343,7 @@ const getGreeting = () => {
                         "
                         type="donut"
                         :icon="BarChart2"
-                        class="min-w-[300px]! w-full"
+                        class="w-full"
                     />
                     <ChartCard
                         title="Monthly SMS Sent"
@@ -363,7 +357,7 @@ const getGreeting = () => {
                         "
                         type="bar"
                         :icon="TrendingUp"
-                        class="min-w-[300px]! w-full"
+                        class="w-full"
                     />
                     <ChartCard
                         title="Payments Over Time"
@@ -379,7 +373,7 @@ const getGreeting = () => {
                         "
                         type="line"
                         :icon="DollarSign"
-                        class="min-w-[300px]! w-full"
+                        class="w-full"
                     />
                 </div>
             </DashboardSection>
@@ -387,63 +381,74 @@ const getGreeting = () => {
             <!-- RECENT ACTIVITY -->
             <DashboardSection title="Recent Activity">
                 <div
-                    class="grid gap-6"
+                    class="grid gap-4 sm:gap-6"
                     style="
                         grid-template-columns: repeat(
                             auto-fit,
-                            minmax(320px, 1fr)
+                            minmax(260px, 1fr)
                         );
                     "
                 >
+                    <!-- New Users -->
                     <div
-                        class="min-w-[300px]! w-full rounded-lg bg-white p-4 shadow"
+                        class="w-full rounded-xl bg-white p-4 shadow transition hover:shadow-lg sm:p-6 dark:bg-gray-900 dark:text-gray-200"
                     >
                         <h3
-                            class="mb-2 flex items-center gap-2 font-semibold text-blue-600"
+                            class="mb-3 flex items-center gap-2 text-base font-semibold text-blue-600 sm:text-lg dark:text-blue-400"
                         >
                             <Users class="h-5 w-5" /> New Users
                         </h3>
-                        <ul class="text-sm text-gray-500">
+                        <ul
+                            class="space-y-1 text-sm text-gray-600 dark:text-gray-400"
+                        >
                             <li
                                 v-for="u in stats.recent_activity.latest_users"
                                 :key="u.username"
                             >
-                                {{ u.username }} - {{ u.type }}
+                                {{ u.username }} — {{ u.type }}
                             </li>
                         </ul>
                     </div>
+
+                    <!-- Recent Payments -->
                     <div
-                        class="min-w-[300px]! w-full rounded-lg bg-white p-4 shadow"
+                        class="w-full rounded-xl bg-white p-4 shadow transition hover:shadow-lg sm:p-6 dark:bg-gray-900 dark:text-gray-200"
                     >
                         <h3
-                            class="mb-2 flex items-center gap-2 font-semibold text-green-600"
+                            class="mb-3 flex items-center gap-2 text-base font-semibold text-green-600 sm:text-lg dark:text-green-400"
                         >
                             <DollarSign class="h-5 w-5" /> Recent Payments
                         </h3>
-                        <ul class="text-sm text-gray-500">
+                        <ul
+                            class="space-y-1 text-sm text-gray-600 dark:text-gray-400"
+                        >
                             <li
                                 v-for="p in stats.recent_activity
                                     .latest_payments"
                                 :key="p.receipt_number"
                             >
-                                KES {{ p.amount }} - {{ p.paid_at }}
+                                KES {{ p.amount }} — {{ p.paid_at }}
                             </li>
                         </ul>
                     </div>
+
+                    <!-- Latest Leads -->
                     <div
-                        class="min-w-[300px]! w-full rounded-lg bg-white p-4 shadow"
+                        class="w-full rounded-xl bg-white p-4 shadow transition hover:shadow-lg sm:p-6 dark:bg-gray-900 dark:text-gray-200"
                     >
                         <h3
-                            class="mb-2 flex items-center gap-2 font-semibold text-purple-600"
+                            class="mb-3 flex items-center gap-2 text-base font-semibold text-purple-600 sm:text-lg dark:text-purple-400"
                         >
                             <Inbox class="h-5 w-5" /> Latest Leads
                         </h3>
-                        <ul class="text-sm text-gray-500">
+                        <ul
+                            class="space-y-1 text-sm text-gray-600 dark:text-gray-400"
+                        >
                             <li
                                 v-for="l in stats.recent_activity.latest_leads"
                                 :key="l.name"
                             >
-                                {{ l.name }} - {{ l.status }}
+                                {{ l.name }} — {{ l.status }}
                             </li>
                         </ul>
                     </div>

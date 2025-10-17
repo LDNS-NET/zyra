@@ -7,7 +7,9 @@ defineProps({
 </script>
 
 <template>
-    <label class="block text-base font-semibold bg-clip-text text-transparent bg-gradient-to-r from-black via-blue-600 to-green-400 transition-all duration-200 dark:text-white ">
+    <label
+        class="block bg-gradient-to-r from-black via-blue-600 to-green-400 bg-clip-text text-base font-semibold text-transparent transition-all duration-200 dark:text-white"
+    >
         <span v-if="value">{{ value }}</span>
         <span v-else><slot /></span>
     </label>
