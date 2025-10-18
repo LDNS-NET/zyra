@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Tenants;
 use App\Http\Controllers\Controller;
 use App\Models\Tenants\TenantSMS;
 use App\Models\Tenants\NetworkUser;
+use App\Models\Tenants\TenantSMSTemplate;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Auth;
 
 class TenantSMSController extends Controller
 {
@@ -27,7 +29,7 @@ class TenantSMSController extends Controller
     public function create()
     {
         $renters = NetworkUser::all();
-        $templates = \App\Models\Tenants\TenantSMSTemplate::orderBy('name')->get(['id', 'name', 'content']);
+        $templates = TenantSMSTemplate::orderBy('name')->get(['id', 'name', 'content']);
 
         return Inertia::render('SMS/Create', [
             'renters' => $renters,
@@ -54,16 +56,33 @@ class TenantSMSController extends Controller
         $logIds = [];
         $phoneNumbers = [];
 
+    $supportNumber = Auth::user()->phone ?? '';
         foreach ($renters as $renter) {
+            $personalizedMessage = $validated['message'];
+            $packageName = '';
+            if ($renter->package) {
+                $packageName = $renter->package->name ?? '';
+            }
+            $replacements = [
+                '{expiry_date}' => $renter->expires_at ? $renter->expires_at->format('Y-m-d') : 'N/A',
+                '{full_name}' => $renter->full_name ?? '',
+                '{phone}' => $renter->phone ?? '',
+                '{account_number}' => $renter->account_number ?? '',
+                '{package}' => $packageName,
+                '{username}' => $renter->username ?? '',
+                '{password}' => $renter->password ?? '',
+                '{support_number}' => $supportNumber,
+            ];
+            foreach ($replacements as $key => $value) {
+                $personalizedMessage = str_replace($key, $value, $personalizedMessage);
+            }
             $smsLog = TenantSMS::create([
                 'recipient_name' => $renter->full_name,
-                // in this codebase the phone column is named `phone` on NetworkUser, but the TenantSMS uses `phone_number`
                 'phone_number' => $renter->phone ?? $renter->phone_number ?? null,
-                'message' => $validated['message'],
+                'message' => $personalizedMessage,
                 'status' => 'pending',
             ]);
             $logIds[] = $smsLog->id;
-            // normalize phone number from whichever field is present
             $rawPhone = $renter->phone ?? $renter->phone_number ?? '';
             $phoneNumbers[] = preg_replace('/^0/', '254', trim($rawPhone));
         }

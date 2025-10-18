@@ -15,6 +15,28 @@ class TenantSMSTemplateController extends Controller
     {
         $perPage = (int) $request->input('perPage', 10);
 
+        $defaultTemplates = [
+            [
+                'name' => 'Internet Expiry',
+                'content' => 'Hello {full_name}, your internet subscription for account {account_number} and package {package} will expire on {expiry_date}. Please renew to continue enjoying our service. Contact: {phone}',
+            ],
+            [
+                'name' => 'Renewal Confirmation',
+                'content' => 'Hi {full_name}, thank you for renewing your internet subscription (account: {account_number}, package: {package}). Your new expiry date is {expiry_date}.',
+            ],
+            [
+                'name' => 'Welcome Message',
+                'content' => 'Welcome {full_name}! Your account ({account_number}) is now active. Username: {username}, Password: {password}, Package: {package}, Phone: {phone}',
+            ],
+        ];
+
+        foreach ($defaultTemplates as $tpl) {
+            $existing = TenantSMSTemplate::where('name', $tpl['name'])->first();
+            if (!$existing) {
+                TenantSMSTemplate::create($tpl);
+            }
+        }
+
         $templates = TenantSMSTemplate::latest()->paginate($perPage)->withQueryString();
 
         return Inertia::render('SMSTemplates/Index', [
