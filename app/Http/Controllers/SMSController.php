@@ -8,6 +8,8 @@ use App\Models\Tenants\NetworkUser;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class SMSController extends Controller
 {
@@ -35,6 +37,14 @@ class SMSController extends Controller
 
     public function store(Request $request)
     {
+        Log::info('SMS store - Auth Status', [
+            'user_id' => Auth::id(),
+            'is_authenticated' => Auth::check(),
+            'csrf_token' => $request->header('X-CSRF-TOKEN'),
+            'session_id' => $request->session()->getId(),
+            'cookies' => $request->cookies->all(),
+        ]);
+
         $validated = $request->validate([
             'recipients' => 'required|array',
             'recipients.*' => 'exists:network_users,id',
