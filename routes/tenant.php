@@ -5,25 +5,26 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
-
-/*
-|--------------------------------------------------------------------------
-| Tenant Routes
-|--------------------------------------------------------------------------
-|
-| Here you can register the tenant routes for your application.
-| These routes are loaded by the TenantRouteServiceProvider.
-|
-| Feel free to customize them however you want. Good luck!
-|
-*/
+use App\Http\Controllers\Tenants\TenantSMSController;
+use App\Http\Controllers\Tenants\TenantPaymentController;
 
 Route::middleware([
     'web',
+    'auth',
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
 ])->group(function () {
+
     Route::get('/', function () {
-        return 'This is your multi-tenant application. The id of the current tenant is ' . tenant('id');
-    });
+        return inertia('Dashboard', [
+            'tenant' => tenant(),
+        ]);
+    })->name('dashboard');
+
+    // Tenant-specific modules
+    Route::resource('sms', TenantSMSController::class);
+
+    // Optional: bulk actions
+    Route::delete('sms/bulk-delete', [TenantSMSController::class, 'bulkDestroy'])->name('sms.bulk-destroy');
+    Route::delete('payments/bulk-delete', [TenantPaymentController::class, 'bulkDestroy'])->name('payments.bulk-destroy');
 });
