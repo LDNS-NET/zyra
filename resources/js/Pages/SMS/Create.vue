@@ -100,11 +100,7 @@ const submit = () => {
                                             v-model="form.recipients"
                                             class="mr-2 rounded border-gray-300 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:checked:bg-blue-600"
                                         />
-                                        <span class="text-sm"
-                                            >{{ renter.full_name }} ({{
-                                                renter.phone_number
-                                            }})</span
-                                        >
+                                        <span class="text-sm">{{ renter.full_name }} ({{ renter.phone }})</span>
                                     </label>
                                     <div
                                         v-if="renters.length === 0"
