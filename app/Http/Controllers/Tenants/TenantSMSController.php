@@ -1,15 +1,15 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Tenants;
 
 use App\Http\Controllers\Controller;
-use App\Models\TenantSMS;
+use App\Models\Tenants\TenantSMS;
 use App\Models\Tenants\NetworkUser;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Http;
 
-class SMSController extends Controller
+class TenantSMSController extends Controller
 {
     public function index(Request $request)
 {
