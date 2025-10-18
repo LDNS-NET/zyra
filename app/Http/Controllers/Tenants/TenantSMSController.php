@@ -12,16 +12,17 @@ use Illuminate\Support\Facades\Http;
 class TenantSMSController extends Controller
 {
     public function index(Request $request)
-    {
-        $perPage = (int) $request->input('perPage', 10);
+{
+    $perPage = (int) $request->input('perPage', 10);
 
-        $smsLogs = TenantSMS::latest()->paginate($perPage)->withQueryString();
+    $smsLogs = TenantSMS::latest()->paginate($perPage)->withQueryString();
 
-        return Inertia::render('SMS/Index', [
-            'smsLogs' => $smsLogs,
-            'perPage' => $perPage,
-        ]);
-    }
+    return Inertia::render('SMS/Index', [
+        'smsLogs' => $smsLogs,
+        'perPage' => (int) $perPage,
+    ]);
+}
+
 
     public function create()
     {
@@ -43,7 +44,7 @@ class TenantSMSController extends Controller
         $renters = NetworkUser::whereIn('id', $validated['recipients'])->get();
 
         if ($renters->isEmpty()) {
-            return back()->withErrors(['recipients' => 'No valid recipients selected.']);
+            return redirect()->back()->withErrors(['recipients' => 'No valid renters selected.']);
         }
 
         $logIds = [];
@@ -51,26 +52,18 @@ class TenantSMSController extends Controller
 
         foreach ($renters as $renter) {
             $smsLog = TenantSMS::create([
-                'user_id' => auth()->id(),
-                'recipient_name' => $renter->full_name ?? 'Unknown',
+                'recipient_name' => $renter->full_name,
                 'phone_number' => $renter->phone,
                 'message' => $validated['message'],
                 'status' => 'pending',
             ]);
-
             $logIds[] = $smsLog->id;
-
-            // Normalize Kenyan phone numbers
-            $formatted = preg_replace('/\s+/', '', $renter->phone);
-            if (str_starts_with($formatted, '+254')) {
-                $formatted = substr($formatted, 1);
-            } elseif (str_starts_with($formatted, '0')) {
-                $formatted = '254' . substr($formatted, 1);
-            }
-            $phoneNumbers[] = $formatted;
+            $phoneNumbers[] = preg_replace('/^0/', '254', trim($renter->phone_number));
         }
 
-        $this->sendSms($logIds, implode(',', $phoneNumbers), $validated['message']);
+        $phoneNumbersString = implode(',', $phoneNumbers);
+
+        $this->sendSms($logIds, $phoneNumbersString, $validated['message']);
 
         return redirect()->route('sms.index')
             ->with('success', 'SMS batch is being processed.');
@@ -84,17 +77,9 @@ class TenantSMSController extends Controller
             ->with('success', 'SMS log deleted successfully.');
     }
 
-    public function destroyMany(Request $request)
-    {
-        $ids = $request->input('ids', []);
-        TenantSMS::whereIn('id', $ids)->delete();
-
-        return back()->with('success', 'Selected SMS logs deleted successfully.');
-    }
-
     public function show(TenantSMS $smsLog)
     {
-        return Inertia::render('SMS/Show', [
+        return Inertia::render('Sms/Show', [
             'smsLog' => $smsLog,
         ]);
     }
@@ -108,7 +93,7 @@ class TenantSMSController extends Controller
             if (!$apiKey || !$senderId) {
                 TenantSMS::whereIn('id', $logIds)->update([
                     'status' => 'failed',
-                    'error_message' => 'Missing TalkSasa API credentials.',
+                    'error_message' => 'Missing TalkSasa API credentials'
                 ]);
                 return;
             }
@@ -118,7 +103,7 @@ class TenantSMSController extends Controller
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
             ])->post('https://bulksms.talksasa.com/api/v3/sms/send', [
-                'recipients' => $phoneNumbers,
+                'recipient' => $phoneNumbers,
                 'sender_id' => $senderId,
                 'type' => 'plain',
                 'message' => $message,
@@ -126,7 +111,7 @@ class TenantSMSController extends Controller
 
             $data = $response->json();
 
-            if ($response->successful() && ($data['status'] ?? null) === 'success') {
+            if ($response->successful() && isset($data['status']) && $data['status'] === 'success') {
                 TenantSMS::whereIn('id', $logIds)->update([
                     'status' => 'sent',
                     'sent_at' => now(),
@@ -137,6 +122,7 @@ class TenantSMSController extends Controller
                     'error_message' => $data['message'] ?? $response->body(),
                 ]);
             }
+
         } catch (\Exception $e) {
             TenantSMS::whereIn('id', $logIds)->update([
                 'status' => 'failed',
@@ -144,4 +130,5 @@ class TenantSMSController extends Controller
             ]);
         }
     }
+
 }
