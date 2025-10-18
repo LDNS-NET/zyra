@@ -53,10 +53,7 @@ class TenantSMSController extends Controller
             return redirect()->back()->withErrors(['recipients' => 'No valid renters selected.']);
         }
 
-        $logIds = [];
-        $phoneNumbers = [];
-
-    $supportNumber = Auth::user()->phone ?? '';
+        $supportNumber = Auth::user()->phone ?? '';
         foreach ($renters as $renter) {
             $personalizedMessage = $validated['message'];
             $packageName = '';
@@ -82,14 +79,41 @@ class TenantSMSController extends Controller
                 'message' => $personalizedMessage,
                 'status' => 'pending',
             ]);
-            $logIds[] = $smsLog->id;
             $rawPhone = $renter->phone ?? $renter->phone_number ?? '';
-            $phoneNumbers[] = preg_replace('/^0/', '254', trim($rawPhone));
+            $phoneNumber = preg_replace('/^0/', '254', trim($rawPhone));
+            // Send SMS immediately for each recipient
+            $apiKey = env('TALKSASA_API_KEY');
+            $senderId = env('TALKSASA_SENDER_ID');
+            if ($apiKey && $senderId && $phoneNumber) {
+                $response = \Illuminate\Support\Facades\Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $apiKey,
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])->post('https://bulksms.talksasa.com/api/v3/sms/send', [
+                    'recipient' => $phoneNumber,
+                    'sender_id' => $senderId,
+                    'type' => 'plain',
+                    'message' => $personalizedMessage,
+                ]);
+                $data = $response->json();
+                if ($response->successful() && isset($data['status']) && $data['status'] === 'success') {
+                    $smsLog->update([
+                        'status' => 'sent',
+                        'sent_at' => now(),
+                    ]);
+                } else {
+                    $smsLog->update([
+                        'status' => 'failed',
+                        'error_message' => $data['message'] ?? $response->body(),
+                    ]);
+                }
+            } else {
+                $smsLog->update([
+                    'status' => 'failed',
+                    'error_message' => 'Missing TalkSasa API credentials or phone number',
+                ]);
+            }
         }
-
-        $phoneNumbersString = implode(',', $phoneNumbers);
-
-        $this->sendSms($logIds, $phoneNumbersString, $validated['message']);
 
         return redirect()->route('sms.index')
             ->with('success', 'SMS batch is being processed.');
