@@ -1,15 +1,15 @@
 <?php
 
-namespace App\Http\Controllers\Tenants;
+namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Models\Tenants\TenantSMS;
+use App\Models\TenantSMS;
 use App\Models\Tenants\NetworkUser;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Http;
 
-class TenantSMSController extends Controller
+class SMSController extends Controller
 {
     public function index(Request $request)
 {
@@ -53,12 +53,15 @@ class TenantSMSController extends Controller
         foreach ($renters as $renter) {
             $smsLog = TenantSMS::create([
                 'recipient_name' => $renter->full_name,
-                'phone_number' => $renter->phone,
+                // in this codebase the phone column is named `phone` on NetworkUser, but the TenantSMS uses `phone_number`
+                'phone_number' => $renter->phone ?? $renter->phone_number ?? null,
                 'message' => $validated['message'],
                 'status' => 'pending',
             ]);
             $logIds[] = $smsLog->id;
-            $phoneNumbers[] = preg_replace('/^0/', '254', trim($renter->phone_number));
+            // normalize phone number from whichever field is present
+            $rawPhone = $renter->phone ?? $renter->phone_number ?? '';
+            $phoneNumbers[] = preg_replace('/^0/', '254', trim($rawPhone));
         }
 
         $phoneNumbersString = implode(',', $phoneNumbers);
@@ -75,13 +78,6 @@ class TenantSMSController extends Controller
 
         return redirect()->route('sms.index')
             ->with('success', 'SMS log deleted successfully.');
-    }
-
-    public function show(TenantSMS $smsLog)
-    {
-        return Inertia::render('Sms/Show', [
-            'smsLog' => $smsLog,
-        ]);
     }
 
     private function sendSms(array $logIds, string $phoneNumbers, string $message)

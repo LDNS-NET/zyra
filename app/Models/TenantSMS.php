@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Tenants;
+namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;

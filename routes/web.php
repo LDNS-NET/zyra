@@ -6,19 +6,10 @@ use Inertia\Inertia;
 
 // Normal user controllers
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\ApartmentController;
-use App\Http\Controllers\RenterController;
-use App\Http\Controllers\PaymentController;
-use App\Http\Controllers\SmsController;
-use App\Http\Controllers\EmailController;
 use App\Http\Controllers\DashboardController;
 
 // SuperAdmin controllers
 use App\Http\Controllers\SuperAdmin\SuperAdminController;
-use App\Http\Controllers\SuperAdmin\SuperAdminTenantController;
-use App\Http\Controllers\SuperAdmin\SuperAdminUserController;
-use App\Http\Controllers\SuperAdmin\SuperAdminPaymentController;
-use App\Http\Controllers\SuperAdmin\SuperAdminSmsController;
 use App\Http\Controllers\Tenants\PackageController;
 use App\Http\Controllers\Tenants\TenantActiveUsersController;
 use App\Http\Controllers\Tenants\TenantEquipmentController;
@@ -33,9 +24,8 @@ use App\Http\Controllers\Tenants\TenantPaymentController;
 use App\Http\Controllers\Tenants\TenantPaymentGatewayController;
 use App\Http\Controllers\Tenants\TenantPayoutSettingsController;
 use App\Http\Controllers\Tenants\TenantSettingsController;
-use App\Http\Controllers\Tenants\TenantSMSController;
+use App\Http\Controllers\SMSController;
 use App\Http\Controllers\Tenants\TenantSmsGatewayController;
-use App\Http\Controllers\Tenants\TenantSMSTemplateController;
 use App\Http\Controllers\Tenants\TenantTicketController;
 use App\Http\Controllers\Tenants\TenantUserController;
 use App\Http\Controllers\Tenants\TenantWhatsappGatewayController;
@@ -109,8 +99,9 @@ Route::middleware(['auth', 'verified', 'check.subscription'])->group(function ()
         Route::delete('/expenses/bulk-delete', [TenantExpensesController::class, 'bulkDelete' ])->name('expenses.bulk-delete');
         
         //SMS
-        Route::resource('sms', TenantSMSController::class)->only(['index','store','create', 'update', 'destroy','show']);
-        Route::resource('sms-templates', TenantSMSTemplateController::class)->except(['show']);
+        Route::resource('sms', SMSController::class)->only(['index','create', 'store', 'destroy']);
+
+
         //Route::resource ('sms_balance', TenantSMSBalanceController::class, 'index')->name('sms.balance');
 
         Route::resource('mikrotiks', TenantMikrotikController::class);
