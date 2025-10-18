@@ -1,0 +1,95 @@
+<script setup>
+import { Link, useForm } from '@inertiajs/vue3';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PrimaryButton from '@/Components/PrimaryButton.vue';
+import TextArea from '@/Components/TextArea.vue';
+import InputLabel from '@/Components/InputLabel.vue';
+import { useToast } from 'vue-toastification';
+
+const toast = useToast();
+
+const form = useForm({
+    name: '',
+    content: '',
+});
+function submit() {
+    form.post(route('smstemplates.store'), {
+        onSuccess: () => {
+            toast.success('Template created successfully');
+            form.reset();
+        },
+        onError: () => {
+            toast.error('Failed. Check form for errors.');
+        },
+    });
+}
+</script>
+
+<template>
+    <AuthenticatedLayout>
+        <template #header>
+            <h2 class="text-xl font-semibold leading-tight">SMS Template</h2>
+        </template>
+
+        <div class="rounded-xl py-12">
+            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+                <div
+                    class="overflow-hidden border border-purple-800 bg-gray-200 p-6 px-8 shadow-sm sm:rounded-lg sm:px-4 md:px-8 lg:px-12 xl:px-16 dark:border-blue-600 dark:bg-black"
+                >
+                    <form @submit.prevent="submit" class="space-y-6">
+                        <div>
+                            <label
+                                for="name"
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                >Template Name</label
+                            >
+                            <input
+                                v-model="form.name"
+                                type="text"
+                                name="name"
+                                id="name"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+                            />
+                        </div>
+                        <div>
+                            <InputLabel
+                                for="content"
+                                class="flex text-sm font-medium text-gray-700 dark:text-gray-300"
+                                >Template Content
+                            </InputLabel>
+                            <TextArea
+                                v-model="form.content"
+                                name="content"
+                                id="content"
+                                rows="4"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+                            ></TextArea>
+                        </div>
+
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <PrimaryButton>
+                                    <Link
+                                        :href="route('smstemplates.index')"
+                                        class="text-white"
+                                    >
+                                        Cancel
+                                    </Link>
+                                </PrimaryButton>
+                            </div>
+                            <div>
+                                <PrimaryButton
+                                    type="submit"
+                                    class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                    :disabled="form.processing"
+                                >
+                                    Save
+                                </PrimaryButton>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </AuthenticatedLayout>
+</template>

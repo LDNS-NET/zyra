@@ -3,18 +3,29 @@
 namespace App\Http\Controllers\Tenants;
 
 use App\Http\Controllers\Controller;
-use App\Models\Tenants\TenantSMSTemplate;
 use Illuminate\Http\Request;
+use App\Models\Tenants\TenantSMSTemplate;
 use Inertia\Inertia;
+
+
 
 class TenantSMSTemplateController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $templates = TenantSMSTemplate::all();
-        return Inertia::render('Tenants/SMS/Templates', [
+        $perPage = (int) $request->input('perPage', 10);
+
+        $templates = TenantSMSTemplate::latest()->paginate($perPage)->withQueryString();
+
+        return Inertia::render('SMSTemplates/Index', [
             'templates' => $templates,
+            'perPage' => (int) $perPage,
         ]);
+    }
+
+    public function create()
+    {
+        return Inertia::render('SMSTemplates/Create');
     }
 
     public function store(Request $request)
@@ -23,24 +34,34 @@ class TenantSMSTemplateController extends Controller
             'name' => 'required|string|max:255',
             'content' => 'required|string|max:1000',
         ]);
-        $validated['created_by'] = auth()->id();
+
         TenantSMSTemplate::create($validated);
-        return back()->with('success', 'Template created.');
+
+        return redirect()->route('smstemplates.index')->with('success', 'SMS Template created successfully.');
     }
 
-    public function update(Request $request, TenantSMSTemplate $template)
+    public function edit(TenantSMSTemplate $smstemplate)
+    {
+        return Inertia::render('SMSTemplates/Edit', [
+            'template' => $smstemplate,
+        ]);
+    }
+    public function update(Request $request, TenantSMSTemplate $smstemplate)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'content' => 'required|string|max:1000',
         ]);
-        $template->update($validated);
-        return back()->with('success', 'Template updated.');
+
+        $smstemplate->update($validated);
+
+        return redirect()->route('smstemplates.index')->with('success', 'SMS Template updated successfully.');
     }
 
-    public function destroy(TenantSMSTemplate $template)
+    public function destroy(TenantSMSTemplate $smstemplate)
     {
-        $template->delete();
-        return back()->with('success', 'Template deleted.');
+        $smstemplate->delete();
+
+        return redirect()->route('smstemplates.index')->with('success', 'SMS Template deleted successfully.');
     }
 }

@@ -26,6 +26,7 @@ use App\Http\Controllers\Tenants\TenantPayoutSettingsController;
 use App\Http\Controllers\Tenants\TenantSettingsController;
 use App\Http\Controllers\Tenants\TenantSMSController;
 use App\Http\Controllers\Tenants\TenantSmsGatewayController;
+use App\Http\Controllers\Tenants\TenantSMSTemplateController;
 use App\Http\Controllers\Tenants\TenantTicketController;
 use App\Http\Controllers\Tenants\TenantUserController;
 use App\Http\Controllers\Tenants\TenantWhatsappGatewayController;
@@ -100,6 +101,9 @@ Route::middleware(['auth', 'verified', 'check.subscription'])->group(function ()
         
         //SMS
         Route::resource('sms', TenantSMSController::class)->only(['index','create', 'store', 'destroy']);
+
+        // SMS Templates
+        Route::resource('smstemplates', TenantSMSTemplateController::class)->only(['index', 'create','update', 'store', 'destroy']);
 
 
         //Route::resource ('sms_balance', TenantSMSBalanceController::class, 'index')->name('sms.balance');

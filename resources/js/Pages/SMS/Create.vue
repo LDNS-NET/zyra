@@ -8,7 +8,17 @@ const toast = useToast();
 
 const props = defineProps({
     renters: Array,
+    templates: Array,
 });
+
+const selectedTemplate = ref('');
+
+function onTemplateChange() {
+    const template = props.templates.find(t => t.id === selectedTemplate.value);
+    if (template) {
+        form.message = template.content;
+    }
+}
 
 const form = useForm({
     recipients: [],
@@ -119,11 +129,15 @@ const submit = () => {
                             </div>
 
                             <div class="mb-4 text-gray-700">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Template</label>
+                                <select v-model="selectedTemplate" @change="onTemplateChange" class="input input-bordered w-full mb-2">
+                                    <option value="">-- Select Template --</option>
+                                    <option v-for="tpl in templates" :key="tpl.id" :value="tpl.id">{{ tpl.name }}</option>
+                                </select>
                                 <label
                                     for="message"
                                     class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                                    >Message</label
-                                >
+                                >Message</label>
                                 <textarea
                                     id="message"
                                     v-model="form.message"

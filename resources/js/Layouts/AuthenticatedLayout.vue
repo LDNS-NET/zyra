@@ -15,12 +15,10 @@ import {
     MessageSquare,
     LogOut,
     Settings,
-    Building2,
     SunIcon,
     FolderEdit,
     AlertCircleIcon,
     ReceiptCent,
-    GitPullRequest,
     Link2Icon,
     MailCheck,
     Activity,
@@ -204,6 +202,17 @@ watch(theme, (val) => {
                     >
                         <MessageSquare class="mr-2 h-4 w-4 text-purple-500" />
                         SMS
+                    </NavLink>
+                </div>
+
+                <div class="mb-4 px-3">
+                    <NavLink
+                        :href="route('smstemplates.index')"
+                        :active="route().current('smstemplates.index')"
+                        class="flex items-center p-2 dark:text-white"
+                    >
+                        <Phone class="mr-2 h-4 w-4 text-purple-500" />
+                        SMS Templates
                     </NavLink>
                 </div>
 

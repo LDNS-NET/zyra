@@ -27,9 +27,11 @@ class TenantSMSController extends Controller
     public function create()
     {
         $renters = NetworkUser::all();
+        $templates = \App\Models\Tenants\TenantSMSTemplate::orderBy('name')->get(['id', 'name', 'content']);
 
         return Inertia::render('SMS/Create', [
             'renters' => $renters,
+            'templates' => $templates,
         ]);
     }
 
