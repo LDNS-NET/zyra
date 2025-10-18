@@ -3,136 +3,145 @@
 namespace App\Http\Controllers\Tenants;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Tenants\TenantSMS;
-use Illuminate\Support\Facades\Http;
-use Inertia\Inertia;
-use Illuminate\Validation\Rule;
 use App\Models\Tenants\NetworkUser;
-use App\Models\Tenants\TenantSMSTemplate;
-use Illuminate\Support\Facades\Log;
-use App\Services\AfricaTalkingService;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Illuminate\Support\Facades\Http;
 
 class TenantSMSController extends Controller
 {
-    protected float $smsCostPerCharacter = 0.01; // 0.01 = 1 cent per character
-
-    /**
-     * List all SMS messages created by the authenticated user.
-     */
-    public function index(AfricaTalkingService $smsService)
+    public function index(Request $request)
     {
-        $messages = TenantSMS::where('created_by', auth()->id())->latest()->paginate(10);
-        $balanceResult = $smsService->getBalance();
-        $balance = floatval(preg_replace('/[^0-9.]/', '', $balanceResult['balance'] ?? '0'));
-        $subscribers = NetworkUser::get(['id', 'full_name', 'phone']);
+        $perPage = (int) $request->input('perPage', 10);
+
+        $smsLogs = TenantSMS::latest()->paginate($perPage)->withQueryString();
 
         return Inertia::render('SMS/Index', [
-            'messages' => $messages,
-            'balance' => $balance,
-            'subscribers' => $subscribers,
+            'smsLogs' => $smsLogs,
+            'perPage' => $perPage,
         ]);
     }
 
-    /**
-     * Store and send SMS messages.
-     */
-    public function store(Request $request, AfricaTalkingService $smsService)
+    public function create()
     {
-        Log::info('TenantSMSController@store called', ['user_id' => auth()->id()]);
-        $validated = $request->validate([
-            'recipients' => 'required|array|min:1',
-            'recipients.*' => 'required|string',
-            'message' => 'required|string|max:1000',
+        $renters = NetworkUser::all();
+
+        return Inertia::render('SMS/Create', [
+            'renters' => $renters,
         ]);
-        Log::info('Validation passed', $validated);
+    }
 
-        $balanceResult = $smsService->getBalance();
-        $balance = floatval(preg_replace('/[^0-9.]/', '', $balanceResult['balance'] ?? '0'));
-        Log::info('AfricaTalking balance fetched', ['balance' => $balance]);
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'recipients' => 'required|array',
+            'recipients.*' => 'exists:network_users,id',
+            'message' => 'required|string|max:500',
+        ]);
 
-        $characters = strlen($validated['message']);
-        $costPerMessage = $characters * $this->smsCostPerCharacter;
-        $totalCost = $costPerMessage * count($validated['recipients']);
-        Log::info('Cost calculated', ['characters' => $characters, 'costPerMessage' => $costPerMessage, 'totalCost' => $totalCost]);
+        $renters = NetworkUser::whereIn('id', $validated['recipients'])->get();
 
-        if ($balance < $totalCost) {
-            Log::warning('Insufficient AfricaTalking balance', ['balance' => $balance, 'totalCost' => $totalCost]);
-            return back()->withErrors(['sms' => 'Insufficient SMS balance']);
+        if ($renters->isEmpty()) {
+            return back()->withErrors(['recipients' => 'No valid recipients selected.']);
         }
 
-        foreach ($validated['recipients'] as $recipient) {
-            $user = NetworkUser::where('phone', $recipient)->first();
-            $response = $smsService->sendSMS([$recipient], $validated['message']);
-            $status = $response['status'] ?? 'unknown';
+        $logIds = [];
+        $phoneNumbers = [];
 
-            $sms = TenantSMS::create([
-                'recipient' => $user?->full_name ?? 'Unknown',
-                'recipient_phone' => $recipient,
+        foreach ($renters as $renter) {
+            $smsLog = TenantSMS::create([
+                'user_id' => auth()->id(),
+                'recipient_name' => $renter->full_name ?? 'Unknown',
+                'phone_number' => $renter->phone,
                 'message' => $validated['message'],
-                'characters' => $characters,
-                'cost' => $costPerMessage,
-                'status' => $status,
-                'created_by' => auth()->id(),
-                'response' => $response,
-                'sent_at' => now(),
+                'status' => 'pending',
             ]);
-            Log::info('SMS record created', ['sms_id' => $sms->id, 'status' => $status, 'response' => $response]);
+
+            $logIds[] = $smsLog->id;
+
+            // Normalize Kenyan phone numbers
+            $formatted = preg_replace('/\s+/', '', $renter->phone);
+            if (str_starts_with($formatted, '+254')) {
+                $formatted = substr($formatted, 1);
+            } elseif (str_starts_with($formatted, '0')) {
+                $formatted = '254' . substr($formatted, 1);
+            }
+            $phoneNumbers[] = $formatted;
         }
 
-        return back()->with('success', 'Messages sent successfully.');
+        $this->sendSms($logIds, implode(',', $phoneNumbers), $validated['message']);
+
+        return redirect()->route('sms.index')
+            ->with('success', 'SMS batch is being processed.');
     }
 
-    /**
-     * Update an existing SMS record.
-     */
-    public function update(Request $request, TenantSMS $sms)
+    public function destroy(TenantSMS $smsLog)
     {
-        $this->authorizeAccess($sms);
+        $smsLog->delete();
 
-        $validated = $request->validate([
-            'message' => 'required|string|max:1000',
-            'status' => ['required', Rule::in(['pending', 'sent', 'failed'])],
+        return redirect()->route('sms.index')
+            ->with('success', 'SMS log deleted successfully.');
+    }
+
+    public function destroyMany(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        TenantSMS::whereIn('id', $ids)->delete();
+
+        return back()->with('success', 'Selected SMS logs deleted successfully.');
+    }
+
+    public function show(TenantSMS $smsLog)
+    {
+        return Inertia::render('SMS/Show', [
+            'smsLog' => $smsLog,
         ]);
-
-        $sms->update($validated);
-
-        return back()->with('success', 'SMS updated successfully.');
     }
 
-    /**
-     * Delete a specific SMS.
-     */
-    public function destroy(TenantSMS $sms)
+    private function sendSms(array $logIds, string $phoneNumbers, string $message)
     {
-        $this->authorizeAccess($sms);
-        $sms->delete();
+        try {
+            $apiKey = env('TALKSASA_API_KEY');
+            $senderId = env('TALKSASA_SENDER_ID');
 
-        return back()->with('success', 'SMS deleted.');
-    }
+            if (!$apiKey || !$senderId) {
+                TenantSMS::whereIn('id', $logIds)->update([
+                    'status' => 'failed',
+                    'error_message' => 'Missing TalkSasa API credentials.',
+                ]);
+                return;
+            }
 
-    /**
-     * Bulk delete SMS messages.
-     */
-    public function bulkDelete(Request $request)
-    {
-        $request->validate([
-            'ids' => 'required|array',
-            'ids.*' => 'integer|exists:tenant_sms,id',
-        ]);
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $apiKey,
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ])->post('https://bulksms.talksasa.com/api/v3/sms/send', [
+                'recipients' => $phoneNumbers,
+                'sender_id' => $senderId,
+                'type' => 'plain',
+                'message' => $message,
+            ]);
 
-        TenantSMS::whereIn('id', $request->ids)->delete();
+            $data = $response->json();
 
-        return back()->with('success', 'Selected SMS messages deleted.');
-    }
-
-    /**
-     * Restrict access to only the creator.
-     */
-    protected function authorizeAccess(TenantSMS $sms): void
-    {
-        if ($sms->created_by !== auth()->id()) {
-            abort(403, 'Unauthorized');
+            if ($response->successful() && ($data['status'] ?? null) === 'success') {
+                TenantSMS::whereIn('id', $logIds)->update([
+                    'status' => 'sent',
+                    'sent_at' => now(),
+                ]);
+            } else {
+                TenantSMS::whereIn('id', $logIds)->update([
+                    'status' => 'failed',
+                    'error_message' => $data['message'] ?? $response->body(),
+                ]);
+            }
+        } catch (\Exception $e) {
+            TenantSMS::whereIn('id', $logIds)->update([
+                'status' => 'failed',
+                'error_message' => $e->getMessage(),
+            ]);
         }
     }
 }

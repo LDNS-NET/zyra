@@ -1,491 +1,283 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
-import { useForm, router } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Eye, Trash, Save, Pencil } from 'lucide-vue-next';
+import { useToast } from 'vue-toastification';
 import Modal from '@/Components/Modal.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
-import TextArea from '@/Components/TextArea.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import DangerButton from '@/Components/DangerButton.vue';
 import InputError from '@/Components/InputError.vue';
+import PrimaryButton from '@/Components/PrimaryButton.vue';
 import Pagination from '@/Components/Pagination.vue';
 
-const props = defineProps({
-    messages: Object,
-    balance: [Object, Number],
-    subscribers: Array,
-    templates: Array,
+const toast = useToast();
+
+defineProps({
+    smsLogs: Object,
+    perPage: Number,
 });
 
-// --- Compose SMS ---
-const showCompose = ref(false);
-const composeForm = useForm({
-    recipients: [],
+const editing = ref(null);
+const showModal = ref(false);
+const viewing = ref(null);
+
+const form = useForm({
+    recipient_name: '',
+    phone_number: '',
     message: '',
-    template_id: '',
+    status: 'pending',
+    sent_at: '',
 });
-const smsCostPerCharacter = 0.01; // 0.01 = 1 cent per character, matches backend
-const costPerMessage = computed(() =>
-    Math.round(composeForm.message.length * smsCostPerCharacter * 100),
-); // in cents
-const totalCost = computed(
-    () => costPerMessage.value * composeForm.recipients.length,
-);
 
-watch(
-    () => composeForm.template_id,
-    (id) => {
-        if (id) {
-            const template = props.templates.find((t) => t.id === id);
-            if (template) {
-                composeForm.message = template.content;
-            }
-        }
-    },
-);
-
-function openCompose() {
-    composeForm.reset();
-    showCompose.value = true;
+function openEdit(sms) {
+    editing.value = sms;
+    form.recipient_name = sms.recipient_name;
+    form.phone_number = sms.phone_number;
+    form.message = sms.message;
+    form.status = sms.status;
+    form.sent_at = sms.sent_at;
+    showModal.value = true;
 }
 
-function sendSMS() {
-    composeForm.post(route('tenants.sms.store'), {
+function saveEdit() {
+    form.put(route('sms.update', editing.value.id), {
+        preserveScroll: true,
         onSuccess: () => {
-            showCompose.value = false;
-            composeForm.reset();
-            router.reload({ only: ['messages', 'balance'] });
+            toast.success('SMS log updated successfully');
+            showModal.value = false;
+            editing.value = null;
         },
+        onError: () => toast.error('Failed to update SMS log'),
     });
 }
 
-// --- Template Management ---
-const showTemplateModal = ref(false);
-const editingTemplate = ref(null);
-const templateForm = useForm({
-    name: '',
-    content: '',
-});
-function openTemplateModal(template = null) {
-    editingTemplate.value = template ? template.id : null;
-    templateForm.name = template ? template.name : '';
-    templateForm.content = template ? template.content : '';
-    showTemplateModal.value = true;
-}
-function saveTemplate() {
-    if (editingTemplate.value) {
-        templateForm.put(
-            route('tenants.sms-templates.update', editingTemplate.value),
-            {
-                onSuccess: () => {
-                    showTemplateModal.value = false;
-                    templateForm.reset();
-                    router.reload({ only: ['templates'] });
-                },
-            },
-        );
-    } else {
-        templateForm.post(route('tenants.sms-templates.store'), {
-            onSuccess: () => {
-                showTemplateModal.value = false;
-                templateForm.reset();
-                router.reload({ only: ['templates'] });
-            },
-        });
-    }
-}
-function deleteTemplate(id) {
-    if (confirm('Delete this template?')) {
-        router.delete(route('tenants.sms-templates.destroy', id), {
-            onSuccess: () => router.reload({ only: ['templates'] }),
+function remove(id) {
+    if (confirm('Are you sure you want to delete this SMS log?')) {
+        router.delete(route('sms.destroy', id), {
+            onSuccess: () => toast.success('SMS log deleted successfully'),
+            onError: () => toast.error('Failed to delete SMS log'),
         });
     }
 }
 
-// --- SMS History ---
-const statusColors = {
-    sent: 'bg-green-100 text-green-700',
-    pending: 'bg-yellow-100 text-yellow-700',
-    failed: 'bg-red-100 text-red-700',
-};
-
-const recipientSearch = ref('');
-const filteredSubscribers = computed(() => {
-    if (!recipientSearch.value) return props.subscribers;
-    return props.subscribers.filter(
-        (s) =>
-            s.full_name
-                .toLowerCase()
-                .includes(recipientSearch.value.toLowerCase()) ||
-            s.phone.includes(recipientSearch.value),
-    );
-});
-const allSelected = computed({
-    get() {
-        return (
-            filteredSubscribers.value.length > 0 &&
-            filteredSubscribers.value.every((s) =>
-                composeForm.recipients.includes(s.phone),
-            )
-        );
-    },
-    set(val) {
-        if (val) {
-            const phones = filteredSubscribers.value.map((s) => s.phone);
-            composeForm.recipients = Array.from(
-                new Set([...composeForm.recipients, ...phones]),
-            );
-        } else {
-            composeForm.recipients = composeForm.recipients.filter(
-                (p) => !filteredSubscribers.value.some((s) => s.phone === p),
-            );
-        }
-    },
-});
-function toggleRecipient(phone) {
-    if (composeForm.recipients.includes(phone)) {
-        composeForm.recipients = composeForm.recipients.filter(
-            (p) => p !== phone,
-        );
-    } else {
-        composeForm.recipients.push(phone);
-    }
-}
-function removeRecipient(phone) {
-    composeForm.recipients = composeForm.recipients.filter((p) => p !== phone);
+function view(sms) {
+    viewing.value = sms;
 }
 </script>
 
 <template>
+    <Head title="SMS Logs" />
+
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between">
-                <h2 class="text-2xl font-semibold text-gray-800">
-                    SMS Management
-                </h2>
-                <PrimaryButton @click="openCompose">Send SMS</PrimaryButton>
+                <h2 class="text-xl font-semibold leading-tight">SMS Logs</h2>
+                <Link
+                    :href="route('sms.create')"
+                    class="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                >
+                    Send SMS
+                </Link>
             </div>
         </template>
 
-        <!-- Balance -->
-        <div class="my-4 flex items-center gap-4">
-            <div
-                class="rounded border border-blue-200 bg-blue-50 px-4 py-2 font-semibold text-blue-800"
-            >
-                SMS Balance: {{ balance?.balance ?? 0 }}
-            </div>
-        </div>
-
-        <!-- Compose SMS Modal -->
-        <Modal :show="showCompose" @close="showCompose = false">
-            <div class="space-y-4 p-6">
-                <h3 class="mb-2 text-lg font-semibold">Compose SMS</h3>
-                <form @submit.prevent="sendSMS" class="space-y-4">
-                    <div>
-                        <InputLabel value="Recipients" />
-                        <div class="mb-2 flex items-center gap-2">
-                            <input
-                                type="text"
-                                v-model="recipientSearch"
-                                placeholder="Search recipients..."
-                                class="w-full rounded border px-2 py-1"
-                            />
-                        </div>
-                        <div class="mb-2 flex items-center gap-2">
-                            <input
-                                type="checkbox"
-                                :checked="allSelected"
-                                @change="
-                                    (e) => (allSelected = e.target.checked)
-                                "
-                                id="selectAllRecipients"
-                            />
-                            <label for="selectAllRecipients" class="text-sm"
-                                >Select All</label
-                            >
-                        </div>
-                        <div
-                            class="max-h-40 overflow-y-auto rounded border bg-gray-50 p-2"
-                        >
-                            <div
-                                v-for="s in filteredSubscribers"
-                                :key="s.id"
-                                class="mb-1 flex items-center gap-2"
-                            >
-                                <input
-                                    type="checkbox"
-                                    :id="'recipient-' + s.id"
-                                    :value="s.phone"
-                                    :checked="
-                                        composeForm.recipients.includes(s.phone)
-                                    "
-                                    @change="() => toggleRecipient(s.phone)"
-                                />
-                                <label :for="'recipient-' + s.id"
-                                    >{{ s.full_name }} ({{ s.phone }})</label
-                                >
-                            </div>
-                            <div
-                                v-if="!filteredSubscribers.length"
-                                class="text-sm text-gray-400"
-                            >
-                                No recipients found.
-                            </div>
-                        </div>
-                        <InputError :message="composeForm.errors.recipients" />
-                        <div
-                            v-if="composeForm.recipients.length"
-                            class="mt-2 rounded border border-blue-200 bg-blue-50 p-2"
-                        >
-                            <div
-                                class="mb-1 text-sm font-semibold text-blue-800"
-                            >
-                                Selected Recipients:
-                            </div>
-                            <div class="flex flex-wrap gap-2">
-                                <span
-                                    v-for="phone in composeForm.recipients"
-                                    :key="phone"
-                                    class="flex items-center gap-1 rounded bg-blue-100 px-2 py-1 text-blue-800"
-                                >
-                                    {{
-                                        props.subscribers.find(
-                                            (s) => s.phone === phone,
-                                        )?.full_name || phone
-                                    }}
-                                    <button
-                                        type="button"
-                                        @click="() => removeRecipient(phone)"
-                                        class="ml-1 text-blue-600 hover:text-red-600"
-                                    >
-                                        &times;
-                                    </button>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        <InputLabel value="Template (optional)" />
-                        <select
-                            v-model="composeForm.template_id"
-                            class="w-full rounded border"
-                        >
-                            <option value="">-- Select Template --</option>
-                            <option
-                                v-for="t in templates"
-                                :key="t.id"
-                                :value="t.id"
-                            >
-                                {{ t.name }}
-                            </option>
-                        </select>
-                    </div>
-                    <div>
-                        <InputLabel value="Message" />
-                        <TextArea
-                            v-model="composeForm.message"
-                            rows="4"
-                            class="w-full"
-                        />
-                        <InputError :message="composeForm.errors.message" />
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <span
-                            >Cost: <b>{{ totalCost }}</b> cents</span
-                        >
-                        <span
-                            v-if="balance && totalCost > balance.balance"
-                            class="text-red-600"
-                            >Insufficient balance</span
-                        >
-                    </div>
-                    <div class="flex justify-end gap-2">
-                        <DangerButton @click="showCompose = false" type="button"
-                            >Cancel</DangerButton
-                        >
-                        <PrimaryButton
-                            :disabled="
-                                composeForm.processing ||
-                                (balance && totalCost > balance.balance)
-                            "
-                        >
-                            Send
-                        </PrimaryButton>
-                    </div>
-                </form>
-            </div>
-        </Modal>
-
-        <!-- Template Management -->
-        <div class="my-8">
-            <div class="mb-2 flex items-center justify-between">
-                <h3 class="text-lg font-semibold">SMS Templates</h3>
-                <PrimaryButton @click="() => openTemplateModal()"
-                    >Add Template</PrimaryButton
+        <div class="py-12">
+            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+                <div
+                    class="overflow-hidden border bg-white shadow-sm sm:rounded-lg dark:border dark:border-gray-700 dark:bg-gray-800"
                 >
-            </div>
-            <div class="overflow-x-auto rounded-lg bg-white shadow">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th
-                                class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
+                    <div
+                        class="border border-blue-400 p-6 dark:border-x-blue-400"
+                    >
+                        <div class="overflow-x-auto">
+                            <table
+                                class="min-w-full divide-y border dark:divide-gray-700 dark:border-gray-700"
                             >
-                                Name
-                            </th>
-                            <th
-                                class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
-                            >
-                                Content
-                            </th>
-                            <th
-                                class="px-4 py-2 text-right text-xs font-semibold text-gray-600"
-                            >
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        <tr v-for="t in templates" :key="t.id">
-                            <td class="px-4 py-2">{{ t.name }}</td>
-                            <td class="px-4 py-2">{{ t.content }}</td>
-                            <td
-                                class="flex justify-end gap-2 px-4 py-2 text-right"
-                            >
-                                <PrimaryButton
-                                    @click="() => openTemplateModal(t)"
-                                    >Edit</PrimaryButton
+                                <thead class="dark:bg-gray-700">
+                                    <tr>
+                                        <th
+                                            class="border-b border-r px-6 py-3 text-left text-xs font-medium uppercase tracking-wider dark:border-gray-600 dark:text-gray-300"
+                                        >
+                                            Recipient
+                                        </th>
+                                        <th
+                                            class="border-b border-r px-6 py-3 text-left text-xs font-medium uppercase tracking-wider dark:border-gray-600 dark:text-gray-300"
+                                        >
+                                            Phone
+                                        </th>
+                                        <th
+                                            class="border-b border-r px-6 py-3 text-left text-xs font-medium uppercase tracking-wider dark:border-gray-600 dark:text-gray-300"
+                                        >
+                                            Message
+                                        </th>
+                                        <th
+                                            class="border-b border-r px-6 py-3 text-left text-xs font-medium uppercase tracking-wider dark:border-gray-600 dark:text-gray-300"
+                                        >
+                                            Status
+                                        </th>
+                                        <th
+                                            class="border-b border-r px-6 py-3 text-left text-xs font-medium uppercase tracking-wider dark:border-gray-600 dark:text-gray-300"
+                                        >
+                                            Sent At
+                                        </th>
+                                        <th
+                                            class="border-b px-6 py-3 text-left text-xs font-medium uppercase tracking-wider dark:border-gray-600 dark:text-gray-300"
+                                        >
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody
+                                    class="divide-y dark:divide-gray-700 dark:bg-gray-800"
                                 >
-                                <DangerButton
-                                    @click="() => deleteTemplate(t.id)"
-                                    >Delete</DangerButton
-                                >
-                            </td>
-                        </tr>
-                        <tr v-if="!(templates && templates.length)">
-                            <td
-                                colspan="3"
-                                class="py-6 text-center text-gray-500"
-                            >
-                                No templates found.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                                    <tr
+                                        v-for="sms in smsLogs.data"
+                                        :key="sms.id"
+                                    >
+                                        <td
+                                            class="whitespace-nowrap border-r px-6 py-4 dark:border-gray-700 dark:text-gray-300"
+                                        >
+                                            {{ sms.recipient_name }}
+                                        </td>
+                                        <td
+                                            class="whitespace-nowrap border-r px-6 py-4 dark:border-gray-700 dark:text-gray-300"
+                                        >
+                                            <div
+                                                class="max-w-xs truncate"
+                                                :title="sms.phone_number"
+                                            >
+                                                {{ sms.phone_number }}
+                                            </div>
+                                        </td>
+                                        <td
+                                            class="border-r px-6 py-4 dark:border-gray-700 dark:text-gray-300"
+                                        >
+                                            <div
+                                                class="max-w-xs truncate"
+                                                :title="sms.message"
+                                            >
+                                                {{ sms.message }}
+                                            </div>
+                                        </td>
+                                        <td
+                                            class="whitespace-nowrap border-r px-6 py-4 dark:border-gray-700"
+                                        >
+                                            <span
+                                                :class="{
+                                                    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300':
+                                                        sms.status === 'sent',
+                                                    'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300':
+                                                        sms.status ===
+                                                        'pending',
+                                                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300':
+                                                        sms.status === 'failed',
+                                                }"
+                                                class="rounded-full px-2 py-1 text-xs font-semibold"
+                                                :title="
+                                                    sms.status === 'failed'
+                                                        ? sms.error_message
+                                                        : ''
+                                                "
+                                            >
+                                                {{ sms.status }}
+                                            </span>
+                                        </td>
+                                        <td
+                                            class="whitespace-nowrap border-r px-6 py-4 dark:border-gray-700 dark:text-gray-300"
+                                        >
+                                            {{
+                                                sms.sent_at
+                                                    ? new Date(
+                                                          sms.sent_at,
+                                                      ).toLocaleString()
+                                                    : 'N/A'
+                                            }}
+                                        </td>
+                                        <td
+                                            class="flex gap-2 whitespace-nowrap px-6 py-4"
+                                        >
+                                            <button
+                                                @click="view(sms)"
+                                                class="text-blue-400 hover:text-blue-300"
+                                                title="View"
+                                            >
+                                                <Eye class="h-5 w-5" />
+                                            </button>
 
-        <!-- Template Modal -->
-        <Modal :show="showTemplateModal" @close="showTemplateModal = false">
-            <div class="space-y-4 p-6">
-                <h3 class="mb-2 text-lg font-semibold">
-                    {{ editingTemplate ? 'Edit' : 'Add' }} Template
-                </h3>
-                <form @submit.prevent="saveTemplate" class="space-y-4">
-                    <div>
-                        <InputLabel value="Name" />
-                        <TextInput v-model="templateForm.name" class="w-full" />
-                        <InputError :message="templateForm.errors.name" />
-                    </div>
-                    <div>
-                        <InputLabel value="Content" />
-                        <TextArea
-                            v-model="templateForm.content"
-                            rows="4"
-                            class="w-full"
-                        />
-                        <InputError :message="templateForm.errors.content" />
-                    </div>
-                    <div class="flex justify-end gap-2">
-                        <DangerButton
-                            @click="showTemplateModal = false"
-                            type="button"
-                            >Cancel</DangerButton
-                        >
-                        <PrimaryButton :disabled="templateForm.processing"
-                            >Save</PrimaryButton
-                        >
-                    </div>
-                </form>
-            </div>
-        </Modal>
+                                            <button
+                                                @click="remove(sms.id)"
+                                                class="text-red-400 hover:text-red-300"
+                                                title="Delete"
+                                            >
+                                                <Trash class="h-5 w-5" />
+                                            </button>
+                                        </td>
+                                    </tr>
 
-        <!-- SMS History -->
-        <div class="my-8">
-            <h3 class="mb-2 text-lg font-semibold">SMS History</h3>
-            <div class="overflow-x-auto rounded-lg bg-white shadow">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th
-                                class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
+                                    <tr v-if="smsLogs.data.length === 0">
+                                        <td
+                                            colspan="6"
+                                            class="border-r px-6 py-4 text-center dark:border-gray-700 dark:text-gray-400"
+                                        >
+                                            No SMS logs found
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="mt-4">
+                            <Pagination
+                                :links="smsLogs.links"
+                                :per-page="perPage"
+                            />
+                        </div>
+
+                        <!-- View Modal -->
+                        <Modal :show="!!viewing" @close="viewing = null">
+                            <div
+                                class="p-4 dark:bg-gray-800 dark:text-gray-100"
+                                v-if="viewing"
                             >
-                                Recipient
-                            </th>
-                            <th
-                                class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
-                            >
-                                Phone
-                            </th>
-                            <th
-                                class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
-                            >
-                                Message
-                            </th>
-                            <th
-                                class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
-                            >
-                                Status
-                            </th>
-                            <th
-                                class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
-                            >
-                                Cost
-                            </th>
-                            <th
-                                class="px-4 py-2 text-left text-xs font-semibold text-gray-600"
-                            >
-                                Sent At
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        <tr v-for="m in messages.data" :key="m.id">
-                            <td class="px-4 py-2">{{ m.recipient }}</td>
-                            <td class="px-4 py-2">{{ m.recipient_phone }}</td>
-                            <td class="px-4 py-2">{{ m.message }}</td>
-                            <td class="px-4 py-2">
-                                <span
-                                    :class="[
-                                        'inline-block rounded px-2 py-1 text-xs font-semibold',
-                                        statusColors[m.status] ||
-                                            'bg-gray-100 text-gray-700',
-                                    ]"
-                                >
-                                    {{ m.status }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-2">{{ m.cost }}</td>
-                            <td class="px-4 py-2">
-                                {{
-                                    m.sent_at
-                                        ? new Date(m.sent_at).toLocaleString()
-                                        : '—'
-                                }}
-                            </td>
-                        </tr>
-                        <tr v-if="!(messages.data && messages.data.length)">
-                            <td
-                                colspan="6"
-                                class="py-6 text-center text-gray-500"
-                            >
-                                No messages found.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-                <Pagination class="mt-4" :links="messages.links" />
+                                <h3 class="mb-4 text-xl font-bold">
+                                    SMS Details
+                                </h3>
+                                <p>
+                                    <strong>Recipient:</strong>
+                                    {{ viewing.recipient_name }}
+                                </p>
+                                <p>
+                                    <strong>Phone:</strong>
+                                    {{ viewing.phone_number }}
+                                </p>
+                                <p>
+                                    <strong>Message:</strong>
+                                    {{ viewing.message }}
+                                </p>
+                                <p>
+                                    <strong>Status:</strong>
+                                    {{ viewing.status }}
+                                </p>
+                                <p>
+                                    <strong>Sent At:</strong>
+                                    {{
+                                        viewing.sent_at
+                                            ? new Date(
+                                                  viewing.sent_at,
+                                              ).toLocaleString()
+                                            : 'N/A'
+                                    }}
+                                </p>
+                                <div class="mt-4">
+                                    <PrimaryButton @click="viewing = null"
+                                        >Close</PrimaryButton
+                                    >
+                                </div>
+                            </div>
+                        </Modal>
+                    </div>
+                </div>
             </div>
         </div>
     </AuthenticatedLayout>

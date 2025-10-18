@@ -109,7 +109,7 @@ Route::middleware(['auth', 'verified', 'check.subscription'])->group(function ()
         Route::delete('/expenses/bulk-delete', [TenantExpensesController::class, 'bulkDelete' ])->name('expenses.bulk-delete');
         
         //SMS
-        Route::resource('sms', TenantSMSController::class)->only(['index','store', 'update', 'destroy','show']);
+        Route::resource('sms', TenantSMSController::class)->only(['index','store','create', 'update', 'destroy','show']);
         Route::resource('sms-templates', TenantSMSTemplateController::class)->except(['show']);
         //Route::resource ('sms_balance', TenantSMSBalanceController::class, 'index')->name('sms.balance');
 

@@ -13,16 +13,14 @@ return new class extends Migration
     {
         Schema::create('tenant_sms', function (Blueprint $table) {
             $table->id();
-            $table->string('recipient')->nullable();
-            $table->string('recipient_phone');
+            $table->string('recipient_name');
+            $table->string('phone_number');
             $table->text('message');
-            $table->enum('status', ['pending', 'sent', 'failed'])->default('pending');
-            $table->decimal('cost', 8, 2);
-            $table->unsignedBigInteger('created_by');
+            $table->string('status')->default('pending'); // pending, sent, failed
+            $table->text('error_message')->nullable();
             $table->timestamp('sent_at')->nullable();
-            $table->json('response')->nullable();
+            $table->foreignId('created_by')->nullable()->constrained('users');
             $table->timestamps();
-            // This table is for tenant DB only, no tenant_id needed
         });
     }
 

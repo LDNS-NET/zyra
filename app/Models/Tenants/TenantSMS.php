@@ -3,37 +3,41 @@
 namespace App\Models\Tenants;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 class TenantSMS extends Model
 {
     protected $table = "tenant_sms";
 
     protected $fillable = [
-        'recipient',
-        'recipient_phone',
+        'recipient_name',
+        'phone_number',
         'message',
         'status',
-        'cost',
-        'created_by',
         'sent_at',
-        'response',
+        'created_by',
     ];
 
     protected $casts = [
         'sent_at' => 'datetime',
-        'response' => 'array',
     ];
 
     protected static function booted()
     {
+        // Global scope to show only the current user's records
+        static::addGlobalScope('created_by', function ($query) {
+            if (Auth::check()) {
+                $query->where('created_by', Auth::id());
+            }
+        });
+
+        // Automatically set created_by on create
         static::creating(function ($model) {
-            if (auth()->check() && empty($model->created_by)) {
-                $model->created_by = auth()->id();
+            if (Auth::check()) {
+                $model->created_by = Auth::id();
             }
         });
     }
-
-    // This model is for tenant DB only, no tenant_id needed
 }
 
 

@@ -103,74 +103,6 @@ const getGreeting = () => {
                     </PrimaryButton>
                 </div>
             </div>
-            <!-- Account Balance Card -->
-            <div
-                class="mb-8 flex items-center justify-between rounded-xl bg-gradient-to-r from-green-100 to-blue-100 p-6 shadow-lg"
-            >
-                <div>
-                    <h2 class="mb-1 text-xl font-bold text-gray-800">
-                        Account Balance
-                    </h2>
-                    <div class="text-3xl font-extrabold text-green-700">
-                        KES {{ stats.account_balance ?? '0.00' }}
-                    </div>
-                    <div class="mt-1 text-xs text-gray-500">
-                        Wallet ID:
-                        <span class="font-mono">{{
-                            stats.wallet_id || 'Not Set'
-                        }}</span>
-                    </div>
-                </div>
-                <DollarSign class="h-12 w-12 text-green-400" />
-            </div>
-            <!-- Trial Banner -->
-            <div
-                v-if="stats.subscription && stats.subscription.is_on_trial"
-                class="mb-8 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 p-6 shadow-lg"
-            >
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-4">
-                        <div class="rounded-full bg-white/20 p-3">
-                            <Clock class="h-8 w-8 text-white" />
-                        </div>
-                        <div>
-                            <h2 class="text-xl font-bold text-white">
-                                Free Trial Active
-                            </h2>
-                            <p class="text-blue-100">
-                                {{ stats.subscription.trial_days_remaining }}
-                                days
-                                <span
-                                    v-if="
-                                        stats.subscription
-                                            .trial_hours_remaining !== undefined
-                                    "
-                                >
-                                    {{
-                                        stats.subscription.trial_hours_remaining
-                                    }}
-                                    hours
-                                </span>
-                                remaining in your trial period
-                            </p>
-                        </div>
-                    </div>
-                    <div class="text-right">
-                        <div class="text-3xl font-bold text-white">
-                            {{ stats.subscription.trial_days_remaining }}
-                            <span
-                                v-if="
-                                    stats.subscription.trial_hours_remaining !==
-                                    undefined
-                                "
-                            >
-                                .{{ stats.subscription.trial_hours_remaining }}h
-                            </span>
-                        </div>
-                        <div class="text-sm text-blue-100">left</div>
-                    </div>
-                </div>
-            </div>
 
             <!-- USERS -->
             <DashboardSection title="Network Users">
@@ -327,54 +259,63 @@ const getGreeting = () => {
             <!-- CHARTS -->
             <DashboardSection title="Analytics & Trends">
                 <div
-                    class="grid grid-cols-1 gap-6 px-4 sm:grid-cols-2 sm:px-6 md:px-8 lg:grid-cols-3 lg:px-12 xl:px-16"
+                    tag="grid grid-cols-1 gap-6 px-4 sm:grid-cols-2 sm:px-6 md:px-8 lg:grid-cols-3 lg:px-12 xl:px-16"
+                    class=""
                 >
-                    <ChartCard
-                        title="User Type Distribution"
-                        :labels="
-                            stats.user_distribution
-                                ? Object.keys(stats.user_distribution)
-                                : []
-                        "
-                        :values="
-                            stats.user_distribution
-                                ? Object.values(stats.user_distribution)
-                                : []
-                        "
-                        type="donut"
-                        :icon="BarChart2"
-                        class="w-full"
-                    />
-                    <ChartCard
-                        title="Monthly SMS Sent"
-                        :labels="
-                            stats.sms_chart ? Object.keys(stats.sms_chart) : []
-                        "
-                        :values="
-                            stats.sms_chart
-                                ? Object.values(stats.sms_chart)
-                                : []
-                        "
-                        type="bar"
-                        :icon="TrendingUp"
-                        class="w-full"
-                    />
-                    <ChartCard
-                        title="Payments Over Time"
-                        :labels="
-                            stats.payments_chart
-                                ? Object.keys(stats.payments_chart)
-                                : []
-                        "
-                        :values="
-                            stats.payments_chart
-                                ? Object.values(stats.payments_chart)
-                                : []
-                        "
-                        type="line"
-                        :icon="DollarSign"
-                        class="w-full"
-                    />
+                    <div class="mt-2">
+                        <ChartCard
+                            title="User Type Distribution"
+                            :labels="
+                                stats.user_distribution
+                                    ? Object.keys(stats.user_distribution)
+                                    : []
+                            "
+                            :values="
+                                stats.user_distribution
+                                    ? Object.values(stats.user_distribution)
+                                    : []
+                            "
+                            type="donut"
+                            :icon="BarChart2"
+                            class=""
+                        />
+                    </div>
+                    <div class="mt-4">
+                        <ChartCard
+                            title="Monthly SMS Sent"
+                            :labels="
+                                stats.sms_chart
+                                    ? Object.keys(stats.sms_chart)
+                                    : []
+                            "
+                            :values="
+                                stats.sms_chart
+                                    ? Object.values(stats.sms_chart)
+                                    : []
+                            "
+                            type="bar"
+                            :icon="TrendingUp"
+                            class="w-full"
+                        />
+                    </div>
+                    <div class="mt-4">
+                        <ChartCard
+                            title="Payments Over Time"
+                            :labels="
+                                stats.payments_chart
+                                    ? Object.keys(stats.payments_chart)
+                                    : []
+                            "
+                            :values="
+                                stats.payments_chart
+                                    ? Object.values(stats.payments_chart)
+                                    : []
+                            "
+                            type="bar"
+                            :icon="DollarSign"
+                            class="w-full"
+                        /> 
+                    </div>
                 </div>
             </DashboardSection>
 

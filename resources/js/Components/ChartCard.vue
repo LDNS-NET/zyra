@@ -65,7 +65,7 @@ const series = computed(() =>
 </script>
 <template>
     <div
-        class="flex flex-col gap-3 rounded-2xl border border-cyan-100 bg-gradient-to-br from-green-100 via-white to-cyan-50 p-4 shadow-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl sm:p-6 dark:border-indigo-800 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-900"
+        class="flex-1 flex-col gap-3 rounded-2xl border border-cyan-100 bg-gradient-to-br from-green-100 via-white to-cyan-50 p-4 shadow-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl sm:p-6 dark:border-indigo-800 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-900"
     >
         <div
             class="mb-3 flex flex-col items-start justify-between gap-2 sm:mb-4 sm:flex-row sm:items-center"
@@ -84,7 +84,7 @@ const series = computed(() =>
       -->
         </div>
 
-        <div class="overflow-x-auto ">
+        <div class="overflow-x-auto">
             <apexchart
                 :options="options"
                 :series="series"
