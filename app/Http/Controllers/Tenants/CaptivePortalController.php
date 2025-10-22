@@ -248,18 +248,37 @@ class CaptivePortalController extends Controller
                 return response()->json(['success' => false, 'message' => 'Failed to initiate payment.']);
             }
 
-            // Store payment request
-            $payment = Payment::create([
-                'phone' => $phone,
-                'package_id' => $package->id,
-                'amount' => $amount,
-                'status' => 'pending',
-                'intasend_reference' => $response->invoice,
-                'intasend_checkout_id' => $response->checkout_id ?? null,
-                'response' => json_decode(json_encode($response), true),
-            ]);
+            // Sanitize SDK response to array
+            $respArray = json_decode(json_encode($response), true);
+            $intasend_reference = null;
+            if (isset($respArray['invoice'])) {
+                if (is_array($respArray['invoice'])) {
+                    $intasend_reference = $respArray['invoice']['invoice_id'] ?? ($respArray['invoice']['id'] ?? json_encode($respArray['invoice']));
+                } else {
+                    $intasend_reference = $respArray['invoice'];
+                }
+            }
+            $intasend_checkout_id = $respArray['checkout_id'] ?? ($respArray['invoice']['checkout_id'] ?? null);
 
-            return response()->json(['success' => true, 'message' => 'STK Push sent. Complete payment on your phone.', 'payment_id' => $payment->id]);
+            // Attempt to persist payment but do not fail the STK flow if DB errors occur
+            $paymentId = null;
+            try {
+                $payment = Payment::create([
+                    'phone' => $phone,
+                    'package_id' => $package->id,
+                    'amount' => $amount,
+                    'status' => 'pending',
+                    'intasend_reference' => is_array($intasend_reference) ? json_encode($intasend_reference) : $intasend_reference,
+                    'intasend_checkout_id' => is_array($intasend_checkout_id) ? json_encode($intasend_checkout_id) : $intasend_checkout_id,
+                    'response' => $respArray,
+                ]);
+                $paymentId = $payment->id;
+            } catch (\Exception $e) {
+                Log::error('Failed to save TenantPayment after STK push', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString(), 'response' => $respArray]);
+                // continue — STK push was initiated successfully, return success to frontend
+            }
+
+            return response()->json(['success' => true, 'message' => 'STK Push sent. Complete payment on your phone.', 'payment_id' => $paymentId]);
         } catch (\Exception $e) {
             Log::error('IntaSend SDK exception', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return response()->json(['success' => false, 'message' => 'Payment error. ' . $e->getMessage()]);
