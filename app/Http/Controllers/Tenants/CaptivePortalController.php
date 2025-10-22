@@ -278,6 +278,17 @@ class CaptivePortalController extends Controller
                 // continue — STK push was initiated successfully, return success to frontend
             }
 
+            if ($paymentId) {
+                // Queue a job to check the payment status after a short delay
+                \App\Jobs\CheckIntaSendPaymentStatus::dispatch($paymentId)->delay(now()->addSeconds(15));
+            } else {
+                // If we couldn't persist the payment record, but we have an intasend_reference, try to find the record later
+                if (!empty($intasend_reference)) {
+                    // Create a lightweight DB entry in a simple table or dispatch a job with the invoice identifier
+                    \App\Jobs\CheckIntaSendPaymentStatus::dispatch($paymentId)->delay(now()->addSeconds(15));
+                }
+            }
+
             return response()->json(['success' => true, 'message' => 'STK Push sent. Complete payment on your phone.', 'payment_id' => $paymentId]);
         } catch (\Exception $e) {
             Log::error('IntaSend SDK exception', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
