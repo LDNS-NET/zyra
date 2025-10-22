@@ -32,8 +32,6 @@ use App\Http\Controllers\Tenants\TenantTicketController;
 use App\Http\Controllers\Tenants\TenantUserController;
 use App\Http\Controllers\Tenants\TenantWhatsappGatewayController;
 use App\Http\Controllers\Tenants\VoucherController;
-use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
-use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 
 /*
 |--------------------------------------------------------------------------
@@ -48,11 +46,6 @@ Route::get('/', function () {
         'phpVersion' => PHP_VERSION,
     ]);
 });
-
-// Public captive portal rendered with tenancy initialized so tenant-scoped packages/business are available
-Route::get('/captive-portal', [CaptivePortalController::class, 'show'])
-    ->middleware([InitializeTenancyByDomain::class, PreventAccessFromCentralDomains::class])
-    ->name('captive-portal');
 
 /*
 |--------------------------------------------------------------------------
@@ -127,8 +120,25 @@ Route::middleware(['auth', 'verified', 'check.subscription'])->group(function ()
         Route::get('mikrotiks/{mikrotik}/reprovision', [TenantMikrotikController::class, 'reprovision'])->name('mikrotiks.reprovision');
 
 
-        //captive portal routes moved to public API - see routes/api.php
-        // (removed: closure Inertia render and hotspot endpoints that were inside auth-protected group)
+        //captive portal
+        Route::get('/captive-portal', function () {
+        return Inertia::render('CaptivePortal/Index');
+        })->name('captive-portal');
+
+        // Fetch available hotspot packages
+        Route::get('/hotspot/packages', [CaptivePortalController::class, 'packages']);
+
+        // Login with username & password (Hotspot)
+        Route::post('/hotspot/login', [CaptivePortalController::class, 'login']);
+
+        // Login using a voucher
+        Route::post('/hotspot/voucher', [CaptivePortalController::class, 'voucher']);
+
+        // Pay for access
+        Route::post('/hotspot/pay', [CaptivePortalController::class, 'pay']);
+
+        // Callback from IntaSend after payment
+        Route::post('/hotspot/payment/callback', [CaptivePortalController::class, 'paymentCallback']);
 
 
         // Tenant settings routes

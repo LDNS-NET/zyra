@@ -354,8 +354,6 @@ class CaptivePortalController extends Controller
                 $payment->save();
 
                 $package = Package::find($payment->package_id);
-                // Dispatch async job to handle post-payment processing
-                \App\Jobs\ProcessSuccessfulPayment::dispatch($payment->id);
                 return $this->_handleSuccessfulPayment($payment, $package, $smsService);
             }
 

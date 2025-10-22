@@ -3,7 +3,6 @@
 namespace App\Models\Tenants;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Tenants\NetworkUser;
 
 class TenantPayment extends Model
 {
@@ -12,24 +11,16 @@ class TenantPayment extends Model
     protected $fillable = [
         "user_id",
         "phone",
-        "package_id",
         "receipt_number",
         "amount",
-        "status",
-        "intasend_reference",
-        "intasend_checkout_id",
-        "transaction_id",
-        "response",
-        "paid_at",
         "checked",
+        "paid_at",
         "created_by",
         "disbursement_type",
     ];
   protected $casts = [
         'checked' => 'boolean',
         'paid_at' => 'datetime',
-        'response' => 'array',
-        'amount' => 'decimal:2',
     ];
     public function user()
     {
