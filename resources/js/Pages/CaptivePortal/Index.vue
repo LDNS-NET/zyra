@@ -1,12 +1,18 @@
 <script setup>
 import { ref, onMounted } from 'vue';
+import { defineProps } from 'vue';
 import axios from 'axios';
+
+const props = defineProps({
+    packages: { type: Array, default: () => [] },
+    business: { type: Object, default: () => ({ name: 'Hotspot', phone: '' }) },
+});
 
 const tenant = ref({ business_name: 'Loading...', phone: '' });
 const activeTab = ref(null);
 const loginForm = ref({ username: '', password: '' });
 const voucherCode = ref('');
-const packages = ref([]);
+const packageList = ref([]);
 const phoneForPayment = ref('');
 const selectedPackage = ref(null);
 const showPaymentModal = ref(false);
@@ -15,6 +21,15 @@ const paymentError = ref('');
 const paymentSuccess = ref('');
 const generatedCredentials = ref(null);
 
+// Initialize from server props if provided
+if (props.business) {
+    tenant.value.business_name = props.business.name ?? props.business.business_name ?? 'Hotspot';
+    tenant.value.phone = props.business.phone ?? '';
+}
+if (Array.isArray(props.packages) && props.packages.length) {
+    packageList.value = props.packages;
+}
+
 const toggleTab = (tab) => {
     activeTab.value = activeTab.value === tab ? null : tab;
     generatedCredentials.value = null;
@@ -22,7 +37,8 @@ const toggleTab = (tab) => {
 
 const fetchTenantDetails = async () => {
     try {
-        const { data } = await axios.get('/captive-portal/tenant');
+        const { data } = await axios.get('/api/captive-portal/tenant');
+        // Expect { business_name, phone }
         tenant.value = data;
     } catch (e) {
         console.error('Failed to fetch tenant', e);
@@ -31,8 +47,8 @@ const fetchTenantDetails = async () => {
 
 const fetchPackages = async () => {
     try {
-        const { data } = await axios.get('/hotspot/packages');
-        packages.value = data.packages;
+        const { data } = await axios.get('/api/hotspot/packages');
+        packageList.value = data.packages;
     } catch (e) {
         console.error('Failed to fetch packages', e);
     }
@@ -41,7 +57,7 @@ const fetchPackages = async () => {
 const loginUser = async () => {
     try {
         const { data } = await axios.post(
-            '/api/captive-portal/login',
+            '/api/hotspot/login',
             loginForm.value,
         );
         if (data.success && data.user) {
@@ -59,9 +75,12 @@ const loginUser = async () => {
 
 const submitVoucher = async () => {
     try {
-        const { data } = await axios.post('/api/captive-portal/voucher', {
-            voucher_code: voucherCode.value,
-        });
+        const { data } = await axios.post(
+            '/api/hotspot/voucher',
+            {
+                voucher_code: voucherCode.value,
+            },
+        );
         if (data.success) {
             generatedCredentials.value = {
                 username: data.user.username,
@@ -100,10 +119,13 @@ const buyPackage = async () => {
     }
     paymentLoading.value = true;
     try {
-        const { data } = await axios.post('/hotspot/pay', {
-            package_id: selectedPackage.value.id,
-            phone: phoneForPayment.value,
-        });
+        const { data } = await axios.post(
+            '/api/hotspot/pay',
+            {
+                package_id: selectedPackage.value.id,
+                phone: phoneForPayment.value,
+            },
+        );
         if (data.success) {
             paymentSuccess.value =
                 data.message ||
@@ -130,8 +152,20 @@ const formatDuration = (pkg) => {
 };
 
 onMounted(() => {
-    fetchTenantDetails();
-    fetchPackages();
+    // If server props were empty, fetch from API; otherwise still refresh in background
+    if (!tenant.value.business_name || tenant.value.business_name === 'Loading...') {
+        fetchTenantDetails();
+    } else {
+        // background refresh
+        fetchTenantDetails();
+    }
+
+    if (!packageList.value.length) {
+        fetchPackages();
+    } else {
+        // refresh packages in background to catch updates
+        fetchPackages();
+    }
 });
 </script>
 
@@ -244,7 +278,7 @@ onMounted(() => {
                 class="grid grid-cols-1 justify-items-center gap-6 sm:grid-cols-2 lg:grid-cols-3"
             >
                 <div
-                    v-for="pkg in packages"
+                    v-for="pkg in packageList"
                     :key="pkg.id"
                     class="flex w-full max-w-xs flex-col justify-between rounded-xl bg-gray-700 p-6 text-center shadow-lg"
                 >

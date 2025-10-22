@@ -7,6 +7,8 @@ use Stancl\Tenancy\Database\Concerns\UsesTenantConnection;
 
 class Package extends Model
 {
+    use UsesTenantConnection;
+
     protected $fillable = [
         'name',
         'type',

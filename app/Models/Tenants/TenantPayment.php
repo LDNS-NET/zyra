@@ -3,6 +3,7 @@
 namespace App\Models\Tenants;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Tenants\NetworkUser;
 
 class TenantPayment extends Model
 {
@@ -11,24 +12,24 @@ class TenantPayment extends Model
     protected $fillable = [
         "user_id",
         "phone",
+        "package_id",
         "receipt_number",
         "amount",
-        "checked",
+        "status",
+        "intasend_reference",
+        "intasend_checkout_id",
+        "transaction_id",
+        "response",
         "paid_at",
+        "checked",
         "created_by",
         "disbursement_type",
-        // Added for IntaSend STK flow
-        'package_id',
-        'status',
-        'intasend_reference',
-        'intasend_checkout_id',
-        'response',
-        'transaction_id',
     ];
-    protected $casts = [
+  protected $casts = [
         'checked' => 'boolean',
         'paid_at' => 'datetime',
         'response' => 'array',
+        'amount' => 'decimal:2',
     ];
     public function user()
     {
