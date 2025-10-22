@@ -23,7 +23,7 @@ class User extends Authenticatable
         'is_super_admin',
         'email_verified_at',
         'last_login_at',
-        
+        'wallet_id',
     ];
 
     protected $casts = [

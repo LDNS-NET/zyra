@@ -50,6 +50,8 @@ class RegisteredUserController extends Controller
             'is_suspended' => false,
         ]);
 
+        // (IntaSend wallet creation removed — wallet creation is handled by tenant listener)
+
         event(new Registered($user));
 
         Auth::login($user);

@@ -17,10 +17,18 @@ class TenantPayment extends Model
         "paid_at",
         "created_by",
         "disbursement_type",
+        // Added for IntaSend STK flow
+        'package_id',
+        'status',
+        'intasend_reference',
+        'intasend_checkout_id',
+        'response',
+        'transaction_id',
     ];
-  protected $casts = [
+    protected $casts = [
         'checked' => 'boolean',
         'paid_at' => 'datetime',
+        'response' => 'array',
     ];
     public function user()
     {

@@ -21,6 +21,15 @@ return new class extends Migration
             $table->boolean('checked')->default(false);
             $table->foreignId('created_by')->nullable();
             $table->string('disbursement_type')->nullable();
+
+            // Added for IntaSend STK flow
+            $table->foreignId('package_id')->nullable()->constrained('packages')->onDelete('set null');
+            $table->string('status')->default('pending');
+            $table->string('intasend_reference')->nullable();
+            $table->string('intasend_checkout_id')->nullable();
+            $table->json('response')->nullable();
+            $table->string('transaction_id')->nullable();
+
             $table->timestamps();
         });
     }

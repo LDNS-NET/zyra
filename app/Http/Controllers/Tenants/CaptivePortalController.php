@@ -9,7 +9,7 @@ use App\Models\Tenants\NetworkUser;
 use App\Models\Voucher;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use App\Models\Tenants\Payment;
+use App\Models\Tenants\TenantPayment as Payment;
 use Illuminate\Support\Facades\Http;
 use IntaSend\IntaSendPHP\Collection;
 use App\Models\TenantSetting;
@@ -222,15 +222,10 @@ class CaptivePortalController extends Controller
             $publishable_key = env('INTASEND_PUBLIC_KEY');
             $test = env('APP_ENV') !== 'production';
 
+            // Generate api_ref — no tenant wallet required for direct collection
             $api_ref = 'HS-' . uniqid();
             $tenantId = tenant('id') ?? (request()->user() ? request()->user()->tenant_id : null);
-            $tenant = \App\Models\Tenant::find($tenantId);
-            if (!$tenant || !$tenant->wallet_id) {
-                Log::error('No wallet_id found for tenant', ['tenant_id' => $tenantId]);
-                return response()->json(['success' => false, 'message' => 'No wallet ID configured for this tenant. Please contact support.']);
-            }
-            $walletId = $tenant->wallet_id;
-            Log::info('Using IntaSend wallet_id', ['wallet_id' => $walletId, 'tenant_id' => $tenantId]);
+            Log::info('Initiating STK push without tenant wallet requirement', ['tenant_id' => $tenantId]);
 
             // Use the latest IntaSend SDK mpesa_stk_push method
             $collection = new Collection();
@@ -249,9 +244,15 @@ class CaptivePortalController extends Controller
                 'amount' => $amount,
                 'narrative' => $narrative,
                 'api_ref' => $api_ref,
+                'callback_url' => url('/hotspot/payment/callback'),
+                'metadata' => [
+                    'package_id' => $package->id,
+                    'api_ref' => $api_ref,
+                ],
                 'currency' => 'KES',
-                'wallet_id' => $walletId,
-            ]);
+            ], function($response) {
+                return $response;
+            });
 
             Log::info('IntaSend SDK mpesa_stk_push response', ['response' => json_decode(json_encode($response), true)]);
 
@@ -282,62 +283,67 @@ class CaptivePortalController extends Controller
     public function paymentCallback(Request $request, AfricaTalkingService $smsService)
     {
         try {
-            $request->validate([
-                'phone' => 'required|string',
-                'package_id' => 'required|exists:packages,id',
-            ]);
-            $payment = Payment::where('phone', $request->phone)
-                ->where('package_id', $request->package_id)
-                ->orderByDesc('id')
-                ->first();
+            // Log the raw callback for debugging
+            Log::info('IntaSend payment callback received', ['payload' => $request->all(), 'headers' => $request->headers->all()]);
+
+            // Optional HMAC signature verification (set INTASEND_WEBHOOK_SECRET in env)
+            $webhookSecret = env('INTASEND_WEBHOOK_SECRET');
+            $signature = $request->header('X-IntaSend-Signature') ?? $request->header('X-Intasend-Signature');
+            if ($webhookSecret && $signature) {
+                $computed = hash_hmac('sha256', $request->getContent(), $webhookSecret);
+                if (!hash_equals($computed, $signature)) {
+                    Log::warning('Invalid IntaSend webhook signature', ['computed' => $computed, 'signature' => $signature]);
+                    return response()->json(['success' => false, 'message' => 'Invalid signature.'], 403);
+                }
+            }
+
+            $payload = $request->all();
+
+            // Try to locate payment by IntaSend identifiers first
+            $payment = null;
+            if (!empty($payload['invoice'])) {
+                $payment = Payment::where('intasend_reference', $payload['invoice'])->first();
+            }
+            if (!$payment && !empty($payload['checkout_id'])) {
+                $payment = Payment::where('intasend_checkout_id', $payload['checkout_id'])->first();
+            }
+
+            // Fallback to phone + package_id (legacy behaviour)
+            if (!$payment && $request->has('phone') && $request->has('package_id')) {
+                $payment = Payment::where('phone', $request->phone)
+                    ->where('package_id', $request->package_id)
+                    ->orderByDesc('id')
+                    ->first();
+            }
+
             if (!$payment) {
-                return response()->json(['success' => false, 'message' => 'No payment found.']);
+                Log::warning('Payment callback received but no matching payment found', ['payload' => $payload]);
+                return response()->json(['success' => false, 'message' => 'No payment found.'], 404);
             }
-            if ($payment->status === 'paid') {
-                // Already paid, create user if not already created
-                $package = Package::find($request->package_id);
-                $username = 'HS' . strtoupper(Str::random(6));
-                $password = Str::random(8);
-                $user = NetworkUser::create([
-                    'account_number' => $this->generateAccountNumber(),
-                    'username' => $username,
-                    'password' => bcrypt($password),
-                    'phone' => $request->phone,
-                    'type' => 'hotspot',
-                    'package_id' => $package->id,
-                    'expires_at' => now()->addDays($package->duration),
-                    'registered_at' => now(),
-                ]);
-                return $this->_handleSuccessfulPayment($payment, $package, $smsService);
-            }
-            // SSL verification enabled for production and secure local dev
-            $statusResponse = Http::withHeaders([
-                'Authorization' => 'Bearer ' . config('services.intasend.secret_key'),
-                'Content-Type' => 'application/json',
-            ])->get(config('services.intasend.base_url') . '/mpesa/transaction-status/', [
-                        'invoice' => $payment->intasend_reference,
-                    ]);
-            $statusData = $statusResponse->json();
-            if ($statusResponse->successful() && isset($statusData['status']) && $statusData['status'] === 'PAID') {
+
+            // Normalize status from payload
+            $status = $payload['status'] ?? ($payload['data']['status'] ?? null);
+            $transactionId = $payload['transaction_id'] ?? ($payload['data']['transaction_id'] ?? ($payload['data']['mpesa_receipt_number'] ?? null));
+
+            // Update payment record with full payload and any identifiers
+            if (!empty($payload['invoice'])) $payment->intasend_reference = $payload['invoice'];
+            if (!empty($payload['checkout_id'])) $payment->intasend_checkout_id = $payload['checkout_id'];
+            if ($transactionId) $payment->transaction_id = $transactionId;
+            $payment->response = $payload;
+
+            if ($status && in_array(strtoupper($status), ['PAID', 'SUCCESS', 'COMPLETED'])) {
                 $payment->status = 'paid';
-                $payment->response = $statusData;
+                $payment->paid_at = $payment->paid_at ?? now();
                 $payment->save();
-                $package = Package::find($request->package_id);
-                $username = 'HS' . strtoupper(Str::random(6));
-                $password = Str::random(8);
-                $user = NetworkUser::create([
-                    'account_number' => $this->generateAccountNumber(),
-                    'username' => $username,
-                    'password' => bcrypt($password),
-                    'phone' => $request->phone,
-                    'type' => 'hotspot',
-                    'package_id' => $package->id,
-                    'expires_at' => now()->addDays($package->duration),
-                    'registered_at' => now(),
-                ]);
+
+                $package = Package::find($payment->package_id);
                 return $this->_handleSuccessfulPayment($payment, $package, $smsService);
             }
-            return response()->json(['success' => false, 'message' => 'Payment not confirmed yet.']);
+
+            // If not paid, persist response and return
+            $payment->status = $payment->status ?? ($status ? strtolower($status) : $payment->status);
+            $payment->save();
+            return response()->json(['success' => true, 'message' => 'Callback processed.']);
         } catch (\Exception $e) {
             Log::error('IntaSend callback exception', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Payment status error. ' . $e->getMessage()]);
