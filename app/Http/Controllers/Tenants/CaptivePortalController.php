@@ -178,7 +178,7 @@ class CaptivePortalController extends Controller
     {
         $packages = Package::where('type', 'hotspot')->get();
         $tenant = tenant();
-        return Inertia::render('Tenants/CaptivePortal/Index', [
+        return Inertia::render('CaptivePortal/Index', [
             'packages' => $packages,
             'business' => [
                 'name' => $tenant->business_name,
@@ -202,7 +202,7 @@ class CaptivePortalController extends Controller
             $phone = $request->phone;
 
             // Log the incoming request
-            \Log::info('STK Push initiation request', [
+            Log::info('STK Push initiation request', [
                 'package_id' => $request->package_id,
                 'phone' => $phone,
                 'amount' => $amount,
@@ -214,52 +214,49 @@ class CaptivePortalController extends Controller
                 $phone = '254' . substr($phone, 1);
             }
             if (!preg_match('/^254(7|1)\d{8}$/', $phone)) {
-                \Log::error('Invalid phone format for STK Push', ['phone' => $phone]);
+                Log::error('Invalid phone format for STK Push', ['phone' => $phone]);
                 return response()->json(['success' => false, 'message' => 'Invalid phone number format. Use 07xxxxxxxx, 01xxxxxxxx, or 2547xxxxxxxx/2541xxxxxxxx.']);
             }
 
-            $credentials = [
-                'token' => env('INTASEND_SECRET_KEY'),
-                'publishable_key' => env('INTASEND_PUBLIC_KEY'),
-                'test' => env('APP_ENV') !== 'production',
-            ];
-
-            // Mask credentials for logging
-            $maskedCreds = $credentials;
-            $maskedCreds['token'] = substr($credentials['token'] ?? '', 0, 6) . '...';
-            $maskedCreds['publishable_key'] = substr($credentials['publishable_key'] ?? '', 0, 6) . '...';
-            \Log::info('Using IntaSend credentials', $maskedCreds);
-
-            $collection = new Collection();
-            $collection->init($credentials);
+            $token = env('INTASEND_SECRET_KEY');
+            $publishable_key = env('INTASEND_PUBLIC_KEY');
+            $test = env('APP_ENV') !== 'production';
 
             $api_ref = 'HS-' . uniqid();
             $tenantId = tenant('id') ?? (request()->user() ? request()->user()->tenant_id : null);
             $tenant = \App\Models\Tenant::find($tenantId);
             if (!$tenant || !$tenant->wallet_id) {
-                \Log::error('No wallet_id found for tenant', ['tenant_id' => $tenantId]);
+                Log::error('No wallet_id found for tenant', ['tenant_id' => $tenantId]);
                 return response()->json(['success' => false, 'message' => 'No wallet ID configured for this tenant. Please contact support.']);
             }
             $walletId = $tenant->wallet_id;
-            \Log::info('Using IntaSend wallet_id', ['wallet_id' => $walletId, 'tenant_id' => $tenantId]);
+            Log::info('Using IntaSend wallet_id', ['wallet_id' => $walletId, 'tenant_id' => $tenantId]);
 
-            $response = $collection->create(
-                $amount,
-                $phone,
-                'KES',
-                'MPESA_STK_PUSH',
-                $api_ref,
-                '', // name (optional)
-                'customer@example.com', // email (optional)
-                [
-                    'wallet_id' => $walletId,
-                ]
-            );
+            // Use the latest IntaSend SDK mpesa_stk_push method
+            $collection = new Collection();
+            $collection->init([
+                'token' => $token,
+                'publishable_key' => $publishable_key,
+                'test' => $test,
+            ]);
 
-            \Log::info('IntaSend SDK response', ['response' => json_decode(json_encode($response), true)]);
+            $email = 'customer@example.com'; // You may want to collect this from user or use a placeholder
+            $narrative = 'Hotspot Package Purchase';
+
+            $response = $collection->mpesa_stk_push([
+                'phone_number' => $phone,
+                'email' => $email,
+                'amount' => $amount,
+                'narrative' => $narrative,
+                'api_ref' => $api_ref,
+                'currency' => 'KES',
+                'wallet_id' => $walletId,
+            ]);
+
+            Log::info('IntaSend SDK mpesa_stk_push response', ['response' => json_decode(json_encode($response), true)]);
 
             if (empty($response->invoice)) {
-                \Log::error('IntaSend SDK error', ['response' => $response]);
+                Log::error('IntaSend SDK error', ['response' => $response]);
                 return response()->json(['success' => false, 'message' => 'Failed to initiate payment.']);
             }
 
@@ -276,7 +273,7 @@ class CaptivePortalController extends Controller
 
             return response()->json(['success' => true, 'message' => 'STK Push sent. Complete payment on your phone.', 'payment_id' => $payment->id]);
         } catch (\Exception $e) {
-            \Log::error('IntaSend SDK exception', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            Log::error('IntaSend SDK exception', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return response()->json(['success' => false, 'message' => 'Payment error. ' . $e->getMessage()]);
         }
     }
@@ -342,7 +339,7 @@ class CaptivePortalController extends Controller
             }
             return response()->json(['success' => false, 'message' => 'Payment not confirmed yet.']);
         } catch (\Exception $e) {
-            \Log::error('IntaSend callback exception', ['error' => $e->getMessage()]);
+            Log::error('IntaSend callback exception', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Payment status error. ' . $e->getMessage()]);
         }
     }
@@ -380,9 +377,9 @@ class CaptivePortalController extends Controller
             if ($user->phone) {
                 try {
                     $smsService->sendSMS([$user->phone], $message);
-                    \Log::info('Sent payment confirmation SMS', ['user_id' => $user->id, 'phone' => $user->phone]);
+                    Log::info('Sent payment confirmation SMS', ['user_id' => $user->id, 'phone' => $user->phone]);
                 } catch (\Exception $e) {
-                    \Log::error('Failed to send payment confirmation SMS', ['error' => $e->getMessage()]);
+                    Log::error('Failed to send payment confirmation SMS', ['error' => $e->getMessage()]);
                 }
             }
         }
