@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 
 // SuperAdmin controllers
 use App\Http\Controllers\SuperAdmin\SuperAdminController;
+use App\Http\Controllers\Tenants\CaptivePortalController;
 use App\Http\Controllers\Tenants\PackageController;
 use App\Http\Controllers\Tenants\TenantActiveUsersController;
 use App\Http\Controllers\Tenants\TenantEquipmentController;
@@ -52,6 +53,8 @@ Route::get('/', function () {
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'verified', 'check.subscription'])->group(function () {
+
+
         // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard/data', [DashboardController::class, 'data'])->name('dashboard.data');
@@ -105,9 +108,7 @@ Route::middleware(['auth', 'verified', 'check.subscription'])->group(function ()
         // SMS Templates
         Route::resource('smstemplates', TenantSMSTemplateController::class)->only(['index', 'create','update', 'store', 'destroy']);
 
-
-        //Route::resource ('sms_balance', TenantSMSBalanceController::class, 'index')->name('sms.balance');
-
+        //mikrotiks
         Route::resource('mikrotiks', TenantMikrotikController::class);
         Route::get('mikrotiks/{mikrotik}/test-connection', [TenantMikrotikController::class, 'testConnection'])->name('mikrotiks.testConnection');
         Route::get('mikrotiks/{mikrotik}/ping', [TenantMikrotikController::class, 'pingRouter'])->name('mikrotiks.ping');
@@ -119,11 +120,28 @@ Route::middleware(['auth', 'verified', 'check.subscription'])->group(function ()
         Route::get('mikrotiks/{mikrotik}/reprovision', [TenantMikrotikController::class, 'reprovision'])->name('mikrotiks.reprovision');
 
 
+        //captive portal
+        Route::get('/captive-portal', function () {
+        return Inertia::render('CaptivePortal/Index');
+        })->name('captive-portal');
+
+        // Fetch available hotspot packages
+        Route::get('/hotspot/packages', [CaptivePortalController::class, 'packages']);
+
+        // Login with username & password (Hotspot)
+        Route::post('/hotspot/login', [CaptivePortalController::class, 'login']);
+
+        // Login using a voucher
+        Route::post('/hotspot/voucher', [CaptivePortalController::class, 'voucher']);
+
+        // Pay for access
+        Route::post('/hotspot/pay', [CaptivePortalController::class, 'pay']);
+
+        // Callback from IntaSend after payment
+        Route::post('/hotspot/payment/callback', [CaptivePortalController::class, 'paymentCallback']);
 
 
         // Tenant settings routes
-
-
 
         Route::get('/settings', [TenantSettingsController::class, 'index'])->name('settings.index');
 
@@ -155,7 +173,7 @@ Route::middleware(['auth', 'verified', 'check.subscription'])->group(function ()
 
 /*
 |--------------------------------------------------------------------------
-| Payment Success Callback
+| Payment Success Callback | Works for system renewals
 |--------------------------------------------------------------------------
 */
 Route::get('/payment/success', function () {

@@ -43,7 +43,7 @@ const dailyIncome = computed(() => {
             // Compare only date part (yyyy-mm-dd)
             return (
                 paid.getFullYear() ===
-                    new Date(selectedDay.value).getFullYear() &&
+                new Date(selectedDay.value).getFullYear() &&
                 paid.getMonth() === new Date(selectedDay.value).getMonth() &&
                 paid.getDate() === new Date(selectedDay.value).getDate()
             );
@@ -337,14 +337,14 @@ function openEditModal(payment) {
 
 function submit() {
     if (editing.value) {
-        form.put(route('payment.update', editing.value), {
+        form.put(route('payments.update', editing.value), {
             onSuccess: () => {
                 showModal.value = false;
                 toast.success('Payment updated successfully');
             },
         });
     } else {
-        form.post(route('payment.store'), {
+        form.post(route('payments.store'), {
             onSuccess: () => {
                 showModal.value = false;
                 toast.success('Payment created successfully');
@@ -358,7 +358,7 @@ function submit() {
 
 const confirmPaymentDeletion = (id) => {
     if (confirm('Are you sure you want to delete this payment?')) {
-        router.delete(route('payment.destroy', id), {
+        router.delete(route('payments.destroy', id), {
             preserveScroll: true,
             onSuccess: () => {
                 toast.success('Payment deleted successfully');
@@ -491,6 +491,7 @@ function generatePaymentConfirmation() {
 
 <template>
     <AuthenticatedLayout>
+
         <Head title="Payments" />
 
         <div class="mx-auto max-w-7xl space-y-6 p-6">
@@ -499,10 +500,7 @@ function generatePaymentConfirmation() {
                     <Banknote class="h-7 w-7 gap-3 text-blue-600" />
                     <h2 class="text-2xl font-bold">Payments</h2>
                 </div>
-                <PrimaryButton
-                    @click="openAddModal"
-                    class="flex items-center gap-2"
-                >
+                <PrimaryButton @click="openAddModal" class="flex items-center gap-2">
                     <Plus class="h-5 w-5 text-blue-600" /> Record Payment
                 </PrimaryButton>
             </div>
@@ -510,36 +508,23 @@ function generatePaymentConfirmation() {
             <br />
 
             <div class="mb-2 flex justify-between gap-2">
-                <button
-                    @click="showFilters = !showFilters"
-                    class="rounded bg-blue-600 px-4 py-2 text-white shadow"
-                >
+                <button @click="showFilters = !showFilters" class="rounded bg-blue-600 px-4 py-2 text-white shadow">
                     {{ showFilters ? 'Hide Filters' : 'Filters' }}
                 </button>
-                <button
-                    @click="showExport = !showExport"
-                    class="rounded bg-green-600 px-4 py-2 text-white shadow"
-                >
+                <button @click="showExport = !showExport" class="rounded bg-green-600 px-4 py-2 text-white shadow">
                     {{ showExport ? 'Hide Export' : 'Export' }}
                 </button>
             </div>
-            <div
-                v-if="showFilters"
-                class="mb-4 flex flex-wrap items-center gap-4"
-            >
+            <div v-if="showFilters" class="mb-4 flex flex-wrap items-center gap-4">
                 <label class="font-semibold">General Filter:</label>
                 <select v-model="filterYear" class="rounded border px-2 py-1">
-                    <option
-                        v-for="y in [
-                            today.getFullYear(),
-                            today.getFullYear() - 1,
-                            today.getFullYear() - 2,
-                            today.getFullYear() - 3,
-                            today.getFullYear() - 4,
-                        ]"
-                        :key="y"
-                        :value="y"
-                    >
+                    <option v-for="y in [
+                        today.getFullYear(),
+                        today.getFullYear() - 1,
+                        today.getFullYear() - 2,
+                        today.getFullYear() - 3,
+                        today.getFullYear() - 4,
+                    ]" :key="y" :value="y">
                         {{ y }}
                     </option>
                 </select>
@@ -560,12 +545,8 @@ function generatePaymentConfirmation() {
                     </option>
                 </select>
                 <label class="ml-4 font-semibold">User/Phone:</label>
-                <input
-                    v-model="globalSearch"
-                    type="text"
-                    placeholder="Type to filter..."
-                    class="rounded border px-2 py-1"
-                />
+                <input v-model="globalSearch" type="text" placeholder="Type to filter..."
+                    class="rounded border px-2 py-1" />
                 <label class="ml-4 font-semibold">Status:</label>
                 <select v-model="filterStatus" class="rounded border px-2 py-1">
                     <option value="">All</option>
@@ -574,158 +555,106 @@ function generatePaymentConfirmation() {
                     <option value="withheld">Withheld</option>
                 </select>
             </div>
-            <div
-                v-if="showExport"
-                class="mb-4 flex flex-wrap items-center gap-4"
-            >
+            <div v-if="showExport" class="mb-4 flex flex-wrap items-center gap-4">
                 <label class="ml-4 font-semibold">Export Format:</label>
                 <select v-model="exportFormat" class="rounded border px-2 py-1">
                     <option value="csv">CSV</option>
                     <option value="pdf">PDF</option>
                 </select>
-                <button
-                    @click="exportPayments"
-                    class="ml-4 rounded bg-green-600 px-3 py-1 text-white shadow"
-                >
+                <button @click="exportPayments" class="ml-4 rounded bg-green-600 px-3 py-1 text-white shadow">
                     Export
                 </button>
-                <span v-if="isLoading" class="ml-2 text-xs text-gray-500"
-                    >Loading...</span
-                >
+                <span v-if="isLoading" class="ml-2 text-xs text-gray-500">Loading...</span>
             </div>
             <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
                 <!-- Daily Card -->
-                <Card
-                    :title="'Daily Income'"
-                    :icon="CalendarDays"
-                    :subtitle="selectedDay"
-                >
+                <Card :title="'Daily Income'" :icon="CalendarDays" :subtitle="selectedDay">
                     <template #value>
                         <div class="flex items-center justify-between">
                             <span>{{
                                 showDaily
                                     ? dailyIncome.toLocaleString('en-KE', {
-                                          style: 'currency',
-                                          currency: 'KES',
-                                      })
+                                        style: 'currency',
+                                        currency: 'KES',
+                                    })
                                     : '******'
                             }}</span>
-                            <button
-                                @click="showDaily = !showDaily"
-                                class="ml-2 text-gray-500 transition hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
-                            >
-                                <component
-                                    :is="showDaily ? Eye : EyeOff"
-                                    class="h-5 w-5"
-                                />
+                            <button @click="showDaily = !showDaily"
+                                class="ml-2 text-gray-500 transition hover:text-gray-700 dark:text-gray-300 dark:hover:text-white">
+                                <component :is="showDaily ? Eye : EyeOff" class="h-5 w-5" />
                             </button>
                         </div>
                     </template>
                     <template #extra>
-                        <input
-                            type="date"
-                            v-model="selectedDay"
-                            class="rounded border px-2 py-1 text-xs"
-                        />
+                        <input type="date" v-model="selectedDay" class="rounded border px-2 py-1 text-xs" />
                     </template>
                 </Card>
                 <!-- Weekly Card -->
-                <Card
-                    :title="'Weekly Income'"
-                    :icon="Calendar"
-                    :subtitle="'Week ' + selectedWeek + ', ' + selectedWeekYear"
-                >
+                <Card :title="'Weekly Income'" :icon="Calendar"
+                    :subtitle="'Week ' + selectedWeek + ', ' + selectedWeekYear">
                     <template #value>
                         <div class="flex items-center justify-between">
                             <span>{{
                                 showWeekly
                                     ? weeklyIncome.toLocaleString('en-KE', {
-                                          style: 'currency',
-                                          currency: 'KES',
-                                      })
+                                        style: 'currency',
+                                        currency: 'KES',
+                                    })
                                     : '******'
                             }}</span>
-                            <button
-                                @click="showWeekly = !showWeekly"
-                                class="ml-2 text-gray-500 transition hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
-                            >
-                                <component
-                                    :is="showWeekly ? Eye : EyeOff"
-                                    class="h-5 w-5"
-                                />
+                            <button @click="showWeekly = !showWeekly"
+                                class="ml-2 text-gray-500 transition hover:text-gray-700 dark:text-gray-300 dark:hover:text-white">
+                                <component :is="showWeekly ? Eye : EyeOff" class="h-5 w-5" />
                             </button>
                         </div>
                     </template>
                     <template #extra>
-                        <select
-                            v-model="selectedWeek"
-                            class="rounded border px-2 py-1 text-xs"
-                        >
+                        <select v-model="selectedWeek" class="rounded border px-2 py-1 text-xs">
                             <option v-for="w in 52" :key="w" :value="w">
                                 Week {{ w }}
                             </option>
                         </select>
-                        <select
-                            v-model="selectedWeekYear"
-                            class="ml-2 rounded border px-2 py-1 text-xs"
-                        >
-                            <option
-                                v-for="y in [
-                                    today.getFullYear(),
-                                    today.getFullYear() - 1,
-                                    today.getFullYear() - 2,
-                                    today.getFullYear() - 3,
-                                    today.getFullYear() - 4,
-                                ]"
-                                :key="y"
-                                :value="y"
-                            >
+                        <select v-model="selectedWeekYear" class="ml-2 rounded border px-2 py-1 text-xs">
+                            <option v-for="y in [
+                                today.getFullYear(),
+                                today.getFullYear() - 1,
+                                today.getFullYear() - 2,
+                                today.getFullYear() - 3,
+                                today.getFullYear() - 4,
+                            ]" :key="y" :value="y">
                                 {{ y }}
                             </option>
                         </select>
                     </template>
                 </Card>
                 <!-- Monthly Card -->
-                <Card
-                    :title="'Monthly Income'"
-                    :icon="Calendar"
-                    :subtitle="
-                        new Date(
-                            selectedMonthYear,
-                            selectedMonth - 1,
-                            1,
-                        ).toLocaleString('en-KE', {
-                            month: 'long',
-                            year: 'numeric',
-                        })
-                    "
-                >
+                <Card :title="'Monthly Income'" :icon="Calendar" :subtitle="new Date(
+                    selectedMonthYear,
+                    selectedMonth - 1,
+                    1,
+                ).toLocaleString('en-KE', {
+                    month: 'long',
+                    year: 'numeric',
+                })
+                    ">
                     <template #value>
                         <div class="flex items-center justify-between">
                             <span>{{
                                 showMonthly
                                     ? monthlyIncome.toLocaleString('en-KE', {
-                                          style: 'currency',
-                                          currency: 'KES',
-                                      })
+                                        style: 'currency',
+                                        currency: 'KES',
+                                    })
                                     : '******'
                             }}</span>
-                            <button
-                                @click="showMonthly = !showMonthly"
-                                class="ml-2 text-gray-500 transition hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
-                            >
-                                <component
-                                    :is="showMonthly ? Eye : EyeOff"
-                                    class="h-5 w-5"
-                                />
+                            <button @click="showMonthly = !showMonthly"
+                                class="ml-2 text-gray-500 transition hover:text-gray-700 dark:text-gray-300 dark:hover:text-white">
+                                <component :is="showMonthly ? Eye : EyeOff" class="h-5 w-5" />
                             </button>
                         </div>
                     </template>
                     <template #extra>
-                        <select
-                            v-model="selectedMonth"
-                            class="rounded border px-2 py-1 text-xs"
-                        >
+                        <select v-model="selectedMonth" class="rounded border px-2 py-1 text-xs">
                             <option v-for="m in 12" :key="m" :value="m">
                                 {{
                                     new Date(2000, m - 1, 1).toLocaleString(
@@ -735,69 +664,46 @@ function generatePaymentConfirmation() {
                                 }}
                             </option>
                         </select>
-                        <select
-                            v-model="selectedMonthYear"
-                            class="ml-2 rounded border px-2 py-1 text-xs"
-                        >
-                            <option
-                                v-for="y in [
-                                    today.getFullYear(),
-                                    today.getFullYear() - 1,
-                                    today.getFullYear() - 2,
-                                    today.getFullYear() - 3,
-                                    today.getFullYear() - 4,
-                                ]"
-                                :key="y"
-                                :value="y"
-                            >
+                        <select v-model="selectedMonthYear" class="ml-2 rounded border px-2 py-1 text-xs">
+                            <option v-for="y in [
+                                today.getFullYear(),
+                                today.getFullYear() - 1,
+                                today.getFullYear() - 2,
+                                today.getFullYear() - 3,
+                                today.getFullYear() - 4,
+                            ]" :key="y" :value="y">
                                 {{ y }}
                             </option>
                         </select>
                     </template>
                 </Card>
                 <!-- Yearly Card -->
-                <Card
-                    :title="'Yearly Income'"
-                    :icon="BarChart2"
-                    :subtitle="selectedYear.toString()"
-                >
+                <Card :title="'Yearly Income'" :icon="BarChart2" :subtitle="selectedYear.toString()">
                     <template #value>
                         <div class="flex items-center justify-between">
                             <span>{{
                                 showYearly
                                     ? yearlyIncome.toLocaleString('en-KE', {
-                                          style: 'currency',
-                                          currency: 'KES',
-                                      })
+                                        style: 'currency',
+                                        currency: 'KES',
+                                    })
                                     : '******'
                             }}</span>
-                            <button
-                                @click="showYearly = !showYearly"
-                                class="ml-2 text-gray-500 transition hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
-                            >
-                                <component
-                                    :is="showYearly ? Eye : EyeOff"
-                                    class="h-5 w-5"
-                                />
+                            <button @click="showYearly = !showYearly"
+                                class="ml-2 text-gray-500 transition hover:text-gray-700 dark:text-gray-300 dark:hover:text-white">
+                                <component :is="showYearly ? Eye : EyeOff" class="h-5 w-5" />
                             </button>
                         </div>
                     </template>
                     <template #extra>
-                        <select
-                            v-model="selectedYear"
-                            class="rounded border px-2 py-1 text-xs"
-                        >
-                            <option
-                                v-for="y in [
-                                    today.getFullYear(),
-                                    today.getFullYear() - 1,
-                                    today.getFullYear() - 2,
-                                    today.getFullYear() - 3,
-                                    today.getFullYear() - 4,
-                                ]"
-                                :key="y"
-                                :value="y"
-                            >
+                        <select v-model="selectedYear" class="rounded border px-2 py-1 text-xs">
+                            <option v-for="y in [
+                                today.getFullYear(),
+                                today.getFullYear() - 1,
+                                today.getFullYear() - 2,
+                                today.getFullYear() - 3,
+                                today.getFullYear() - 4,
+                            ]" :key="y" :value="y">
                                 {{ y }}
                             </option>
                         </select>
@@ -806,128 +712,108 @@ function generatePaymentConfirmation() {
             </div>
 
             <div v-if="selectedTenantPayments.length > 0" class="mt-4 flex">
-                <DangerButton
-                    @click="bulkDelete"
-                    class="flex items-center gap-2"
-                >
+                <DangerButton @click="bulkDelete" class="flex items-center gap-2">
                     <Trash2 class="h-4 w-4" /> Bulk Delete ({{
                         selectedTenantPayments.length
                     }})
                 </DangerButton>
             </div>
 
-            <table class="w-full overflow-hidden rounded bg-white shadow">
-                <thead class="bg-gray-100 text-left">
-                    <tr>
-                        <td class="px-4 py-3">
-                            <input type="checkbox" v-model="selectAll" />
-                        </td>
-                        <th class="px-4 py-2">User</th>
-                        <th class="px-4 py-2">Phone</th>
-                        <th class="px-4 py-2">Receipt</th>
-                        <th class="px-4 py-2">Amount</th>
-                        <th class="px-4 py-2">Checked</th>
-                        <th class="px-4 py-2">Paid At</th>
-                        <th class="px-4 py-2">Disbursement</th>
-                        <th class="px-4 py-2">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="item in paymentsData"
-                        :key="item.id"
-                        class="border-t"
-                    >
-                        <td class="px-6 py-3">
-                            <input
-                                type="checkbox"
-                                :value="item.id"
-                                v-model="selectedTenantPayments"
-                                @change="toggleSelectAll"
-                            />
-                        </td>
-                        <td class="px-4 py-2">{{ item.user }}</td>
-                        <td class="px-4 py-2">{{ item.phone }}</td>
-                        <td class="px-4 py-2">{{ item.receipt_number }}</td>
-                        <td class="px-4 py-2">{{ item.amount }}</td>
-                        <td class="px-4 py-2">{{ item.checked_label }}</td>
-                        <td class="px-4 py-2">{{ item.paid_at }}</td>
-                        <td class="px-4 py-2">{{ item.disbursement_label }}</td>
-                        <td class="space-x-2 px-4 py-2">
-                            <button
-                                @click="openEditModal(item)"
-                                class="text-blue-600 hover:underline"
-                            >
-                                <Edit class="h-4 w-4" />
-                            </button>
-                            <button @click="confirmPaymentDeletion(item.id)">
-                                <Trash2 class="h-4 w-4 text-red-600" />
-                            </button>
-                            <button
-                                @click="showPaymentDetails(item)"
-                                class="text-green-600 hover:underline"
-                            >
-                                <Eye class="h-4 w-4" />
-                            </button>
-                        </td>
-                    </tr>
-                    <!-- Payment Details Modal -->
-                    <Modal :show="showDetailsModal" @close="closeDetailsModal">
-                        <div v-if="paymentDetails" class="space-y-2 p-6">
-                            <h2 class="mb-2 text-lg font-bold">
-                                Payment Details
-                            </h2>
-                            <div v-if="paymentDetails.business_name">
-                                <strong>Business:</strong>
-                                {{ paymentDetails.business_name }}
+            <div class="rounded-xl border border-black dark:border-blue-500">
+                <table class="w-full overflow-hidden rounded shadow">
+                    <thead class="text-left">
+                        <tr>
+                            <td class="px-4 py-3">
+                                <input type="checkbox" v-model="selectAll" />
+                            </td>
+                            <th class="px-4 py-2">User</th>
+                            <th class="px-4 py-2">Phone</th>
+                            <th class="px-4 py-2">Receipt</th>
+                            <th class="px-4 py-2">Amount</th>
+                            <th class="px-4 py-2">Checked</th>
+                            <th class="px-4 py-2">Paid At</th>
+                            <th class="px-4 py-2">Disbursement</th>
+                            <th class="px-4 py-2">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="item in paymentsData" :key="item.id" class="border-t">
+                            <td class="px-6 py-3">
+                                <input type="checkbox" :value="item.id" v-model="selectedTenantPayments"
+                                    @change="toggleSelectAll" />
+                            </td>
+                            <td class="px-4 py-2">{{ item.user }}</td>
+                            <td class="px-4 py-2">{{ item.phone }}</td>
+                            <td class="px-4 py-2">{{ item.receipt_number }}</td>
+                            <td class="px-4 py-2">{{ item.amount }}</td>
+                            <td class="px-4 py-2">{{ item.checked_label }}</td>
+                            <td class="px-4 py-2">{{ item.paid_at }}</td>
+                            <td class="px-4 py-2">{{ item.disbursement_label }}</td>
+                            <td class="space-x-2 px-4 py-2">
+                                <button @click="openEditModal(item)" class="text-blue-600 hover:underline">
+                                    <Edit class="h-4 w-4" />
+                                </button>
+                                <button @click="confirmPaymentDeletion(item.id)">
+                                    <Trash2 class="h-4 w-4 text-red-600" />
+                                </button>
+                                <button @click="showPaymentDetails(item)" class="text-green-600 hover:underline">
+                                    <Eye class="h-4 w-4" />
+                                </button>
+                            </td>
+                        </tr>
+                        <!-- Payment Details Modal -->
+                        <Modal :show="showDetailsModal" @close="closeDetailsModal">
+                            <div v-if="paymentDetails" class="space-y-2 p-6">
+                                <h2 class="mb-2 text-lg font-bold">
+                                    Payment Details
+                                </h2>
+                                <div v-if="paymentDetails.business_name">
+                                    <strong>Business:</strong>
+                                    {{ paymentDetails.business_name }}
+                                </div>
+                                <div v-if="paymentDetails.package">
+                                    <strong>Package:</strong>
+                                    {{ paymentDetails.package.type }}<br />
+                                    <strong>Package Price:</strong> KSh
+                                    {{ paymentDetails.package.price }}
+                                </div>
+                                <div>
+                                    <strong>User:</strong> {{ paymentDetails.user }}
+                                </div>
+                                <div>
+                                    <strong>Phone:</strong>
+                                    {{ paymentDetails.phone }}
+                                </div>
+                                <div>
+                                    <strong>Receipt Number:</strong>
+                                    {{ paymentDetails.receipt_number }}
+                                </div>
+                                <div>
+                                    <strong>Amount:</strong>
+                                    {{ paymentDetails.amount }}
+                                </div>
+                                <div>
+                                    <strong>Checked:</strong>
+                                    {{ paymentDetails.checked_label }}
+                                </div>
+                                <div>
+                                    <strong>Paid At:</strong>
+                                    {{ paymentDetails.paid_at }}
+                                </div>
+                                <div>
+                                    <strong>Disbursement:</strong>
+                                    {{ paymentDetails.disbursement_label }}
+                                </div>
+                                <div class="mt-4 flex justify-end gap-2">
+                                    <PrimaryButton @click="generatePaymentConfirmation">Generate Payment
+                                        Confirmation</PrimaryButton>
+                                    <PrimaryButton @click="closeDetailsModal">Close</PrimaryButton>
+                                </div>
                             </div>
-                            <div v-if="paymentDetails.package">
-                                <strong>Package:</strong>
-                                {{ paymentDetails.package.type }}<br />
-                                <strong>Package Price:</strong> KSh
-                                {{ paymentDetails.package.price }}
-                            </div>
-                            <div>
-                                <strong>User:</strong> {{ paymentDetails.user }}
-                            </div>
-                            <div>
-                                <strong>Phone:</strong>
-                                {{ paymentDetails.phone }}
-                            </div>
-                            <div>
-                                <strong>Receipt Number:</strong>
-                                {{ paymentDetails.receipt_number }}
-                            </div>
-                            <div>
-                                <strong>Amount:</strong>
-                                {{ paymentDetails.amount }}
-                            </div>
-                            <div>
-                                <strong>Checked:</strong>
-                                {{ paymentDetails.checked_label }}
-                            </div>
-                            <div>
-                                <strong>Paid At:</strong>
-                                {{ paymentDetails.paid_at }}
-                            </div>
-                            <div>
-                                <strong>Disbursement:</strong>
-                                {{ paymentDetails.disbursement_label }}
-                            </div>
-                            <div class="mt-4 flex justify-end gap-2">
-                                <PrimaryButton
-                                    @click="generatePaymentConfirmation"
-                                    >Generate Payment
-                                    Confirmation</PrimaryButton
-                                >
-                                <PrimaryButton @click="closeDetailsModal"
-                                    >Close</PrimaryButton
-                                >
-                            </div>
-                        </div>
-                    </Modal>
-                </tbody>
-            </table>
+                        </Modal>
+                    </tbody>
+                </table>
+            </div>
 
             <Pagination :links="payments.links" />
         </div>
@@ -943,129 +829,92 @@ function generatePaymentConfirmation() {
                     <!-- User select with filter -->
                     <div>
                         <InputLabel for="user_id" value="User" />
-                        <input
-                            v-model="userSearch"
-                            type="text"
-                            placeholder="Search user by name or phone..."
-                            class="mb-2 mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                        />
-                        <select
-                            v-model="form.user_id"
-                            id="user_id"
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                        >
-                            <option value="">Select User</option>
-                            <option
-                                v-for="u in filteredUsers"
-                                :key="u.id"
-                                :value="u.id"
-                            >
+
+                        <!-- Search Input -->
+                        <TextInput v-model="userSearch" type="text" placeholder="Search user by name or phone..." class="mb-2 mt-1 block w-full rounded-md border-gray-300 shadow-sm 
+           focus:border-blue-500 focus:ring-blue-500
+           dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400" />
+
+                        <!-- Select Dropdown -->
+                        <select v-model="form.user_id" id="user_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm 
+           focus:border-blue-500 focus:ring-blue-500
+           dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400">
+                            <option value="" class="bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                Select User
+                            </option>
+                            <option v-for="u in filteredUsers" :key="u.id" :value="u.id"
+                                class="bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                                 {{ u.username }} ({{ u.phone }})
                             </option>
                         </select>
-                        <InputError
-                            :message="form.errors.user_id"
-                            class="mt-2"
-                        />
+
+                        <InputError :message="form.errors.user_id" class="mt-2" />
                     </div>
+
 
                     <!-- Auto-filled phone (readonly) -->
                     <div>
                         <InputLabel for="phone" value="Phone" />
-                        <TextInput
-                            v-model="form.phone"
-                            id="phone"
-                            class="mt-1 block w-full bg-gray-100"
-                            readonly
-                        />
+                        <TextInput v-model="form.phone" id="phone" class="mt-1 block w-full" readonly />
                     </div>
 
                     <div>
-                        <InputLabel
-                            for="receipt_number"
-                            value="Receipt Number"
-                        />
-                        <TextInput
-                            v-model="form.receipt_number"
-                            id="receipt_number"
-                            class="mt-1 block w-full"
-                        />
-                        <InputError
-                            :message="form.errors.receipt_number"
-                            class="mt-2"
-                        />
+                        <InputLabel for="receipt_number" value="Receipt Number" />
+                        <TextInput v-model="form.receipt_number" id="receipt_number" class="mt-1 block w-full" />
+                        <InputError :message="form.errors.receipt_number" class="mt-2" />
                     </div>
 
                     <div>
                         <InputLabel for="amount" value="Amount" />
-                        <TextInput
-                            v-model="form.amount"
-                            id="amount"
-                            type="number"
-                            step="0.01"
-                            class="mt-1 block w-full"
-                        />
-                        <InputError
-                            :message="form.errors.amount"
-                            class="mt-2"
-                        />
+                        <TextInput v-model="form.amount" id="amount" type="number" step="0.01"
+                            class="mt-1 block w-full" />
+                        <InputError :message="form.errors.amount" class="mt-2" />
                     </div>
 
                     <!-- Checked select (Yes/No as boolean) -->
                     <div>
                         <InputLabel for="checked" value="Checked" />
-                        <select
-                            v-model="form.checked"
-                            id="checked"
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                        >
-                            <option :value="true">Yes</option>
-                            <option :value="false">No</option>
+
+                        <select v-model="form.checked" id="checked" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm
+           focus:border-blue-500 focus:ring-blue-500
+           dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400
+           transition-colors duration-200 ease-in-out">
+                            <option :value="true" class="bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                Yes
+                            </option>
+                            <option :value="false" class="bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                No
+                            </option>
                         </select>
-                        <InputError
-                            :message="form.errors.checked"
-                            class="mt-2"
-                        />
+
+                        <InputError :message="form.errors.checked" class="mt-2" />
                     </div>
+
 
                     <div>
                         <InputLabel for="paid_at" value="Paid At" />
-                        <TextInput
-                            v-model="form.paid_at"
-                            id="paid_at"
-                            type="datetime-local"
-                            class="mt-1 block w-full"
-                        />
-                        <InputError
-                            :message="form.errors.paid_at"
-                            class="mt-2"
-                        />
+                        <TextInput v-model="form.paid_at" id="paid_at" type="datetime-local"
+                            class="mt-1 block w-full" />
+                        <InputError :message="form.errors.paid_at" class="mt-2" />
                     </div>
 
                     <!-- Disbursement select -->
                     <div>
-                        <InputLabel
-                            for="disbursement_type"
-                            value="Disbursement"
-                        />
-                        <select
-                            v-model="form.disbursement_type"
-                            id="disbursement_type"
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                        >
-                            <option
-                                v-for="opt in DISBURSEMENT_OPTIONS"
-                                :key="opt.value"
-                                :value="opt.value"
-                            >
+                        <InputLabel for="disbursement_type" value="Disbursement" />
+
+                        <select v-model="form.disbursement_type" id="disbursement_type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm
+           focus:border-blue-500 focus:ring-blue-500
+           dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400
+           transition-colors duration-200 ease-in-out">
+                            <option v-for="opt in DISBURSEMENT_OPTIONS" :key="opt.value" :value="opt.value"
+                                class="bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                                 {{ opt.label }}
                             </option>
                         </select>
-                        <InputError
-                            :message="form.errors.disbursement_type"
-                            class="mt-2"
-                        />
+
+                        <InputError :message="form.errors.disbursement_type" class="mt-2" />
                     </div>
+
                 </div>
 
                 <div class="mt-4 text-right">
@@ -1083,7 +932,6 @@ select {
     padding-right: 2rem;
     min-width: 120px;
     appearance: none;
-    background: url('data:image/svg+xml;utf8,<svg fill="none" stroke="%23333" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg>')
-        no-repeat right 0.75rem center/1rem 1rem;
+    background: url('data:image/svg+xml;utf8,<svg fill="none" stroke="%23333" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg>') no-repeat right 0.75rem center/1rem 1rem;
 }
 </style>

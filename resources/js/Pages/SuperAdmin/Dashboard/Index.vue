@@ -17,7 +17,7 @@ const stats = computed(() => [
         //link: route('superadmin.tenants.index'),
     },
     {
-        title: 'Users',
+        title: 'End Users',
         value: props.value?.totalEndUsers ?? 0,
         icon: User,
         color: 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300',
