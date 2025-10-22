@@ -235,13 +235,13 @@ class CaptivePortalController extends Controller
                 'test' => $test,
             ]);
 
-            $email = 'customer@example.com'; // You may want to collect this from user or use a placeholder
+            $email = 'customer@example.com';
             $narrative = 'Hotspot Package Purchase';
 
-            // Use SDK create(...) with proper scalar parameters to initiate MPESA STK Push
-            $response = $collection->create($amount, $phone, 'KES', 'MPESA_STK_PUSH', $api_ref, $email, null);
+            // Use mpesa_stk_push helper (no wallet id) which matches vendor SDK
+            $response = $collection->mpesa_stk_push($amount, $phone, $api_ref, $email);
 
-            Log::info('IntaSend SDK create() response', ['response' => json_decode(json_encode($response), true)]);
+            Log::info('IntaSend SDK mpesa_stk_push response', ['response' => json_decode(json_encode($response), true)]);
 
             if (empty($response->invoice)) {
                 Log::error('IntaSend SDK error', ['response' => $response]);
