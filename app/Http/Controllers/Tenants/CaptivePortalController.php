@@ -432,4 +432,24 @@ class CaptivePortalController extends Controller
         }
         return response()->json(['business_name' => $t->business_name, 'phone' => $t->phone]);
     }
+
+    public function paymentStatus($identifier)
+    {
+        // Try numeric id first
+        $payment = null;
+        if (ctype_digit((string)$identifier)) {
+            $payment = Payment::find((int)$identifier);
+        }
+        if (!$payment) {
+            $payment = Payment::where('intasend_reference', $identifier)
+                ->orWhere('intasend_checkout_id', $identifier)
+                ->first();
+        }
+
+        if (!$payment) {
+            return response()->json(['success' => false, 'message' => 'Payment not found'], 404);
+        }
+
+        return response()->json(['success' => true, 'status' => $payment->status, 'payment' => $payment]);
+    }
 }
