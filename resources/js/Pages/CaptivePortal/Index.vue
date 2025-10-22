@@ -22,7 +22,7 @@ const toggleTab = (tab) => {
 
 const fetchTenantDetails = async () => {
     try {
-        const { data } = await axios.get('/api/captive-portal/tenant');
+        const { data } = await axios.get('/captive-portal/tenant');
         tenant.value = data;
     } catch (e) {
         console.error('Failed to fetch tenant', e);
@@ -31,7 +31,7 @@ const fetchTenantDetails = async () => {
 
 const fetchPackages = async () => {
     try {
-        const { data } = await axios.get('/api/hotspot/packages');
+        const { data } = await axios.get('/hotspot/packages');
         packages.value = data.packages;
     } catch (e) {
         console.error('Failed to fetch packages', e);
@@ -41,7 +41,7 @@ const fetchPackages = async () => {
 const loginUser = async () => {
     try {
         const { data } = await axios.post(
-            '/api/hotspot/login',
+            '/api/captive-portal/login',
             loginForm.value,
         );
         if (data.success && data.user) {
@@ -59,7 +59,7 @@ const loginUser = async () => {
 
 const submitVoucher = async () => {
     try {
-        const { data } = await axios.post('/api/hotspot/voucher', {
+        const { data } = await axios.post('/api/captive-portal/voucher', {
             voucher_code: voucherCode.value,
         });
         if (data.success) {
@@ -100,7 +100,7 @@ const buyPackage = async () => {
     }
     paymentLoading.value = true;
     try {
-        const { data } = await axios.post('/api/hotspot/pay', {
+        const { data } = await axios.post('/hotspot/pay', {
             package_id: selectedPackage.value.id,
             phone: phoneForPayment.value,
         });
