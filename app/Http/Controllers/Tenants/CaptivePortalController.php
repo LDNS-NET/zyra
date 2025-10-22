@@ -238,23 +238,10 @@ class CaptivePortalController extends Controller
             $email = 'customer@example.com'; // You may want to collect this from user or use a placeholder
             $narrative = 'Hotspot Package Purchase';
 
-            $response = $collection->mpesa_stk_push([
-                'phone_number' => $phone,
-                'email' => $email,
-                'amount' => $amount,
-                'narrative' => $narrative,
-                'api_ref' => $api_ref,
-                'callback_url' => url('/hotspot/payment/callback'),
-                'metadata' => [
-                    'package_id' => $package->id,
-                    'api_ref' => $api_ref,
-                ],
-                'currency' => 'KES',
-            ], function($response) {
-                return $response;
-            });
+            // Use SDK create(...) with proper scalar parameters to initiate MPESA STK Push
+            $response = $collection->create($amount, $phone, 'KES', 'MPESA_STK_PUSH', $api_ref, $email, null);
 
-            Log::info('IntaSend SDK mpesa_stk_push response', ['response' => json_decode(json_encode($response), true)]);
+            Log::info('IntaSend SDK create() response', ['response' => json_decode(json_encode($response), true)]);
 
             if (empty($response->invoice)) {
                 Log::error('IntaSend SDK error', ['response' => $response]);
@@ -405,5 +392,14 @@ class CaptivePortalController extends Controller
         if (!$tenantId) return;
         $meta = ['payment_id' => $payment->id];
         app(\App\Services\TenantPayoutService::class)->disburse($payment->amount, $tenantId, $meta);
+    }
+
+    public function tenant()
+    {
+        $t = tenant();
+        if (!$t) {
+            return response()->json(['business_name' => 'Hotspot', 'phone' => '']);
+        }
+        return response()->json(['business_name' => $t->business_name, 'phone' => $t->phone]);
     }
 }

@@ -214,3 +214,16 @@ Route::middleware(['auth', 'superadmin'])
     });
 
 require __DIR__.'/auth.php';
+
+/*
+|--------------------------------------------------------------------------
+| Public Captive Portal API (no authentication)
+| These endpoints are consumed by the captive portal UI and must be public.
+|--------------------------------------------------------------------------
+*/
+Route::get('/captive-portal/tenant', [CaptivePortalController::class, 'tenant']);
+Route::get('/hotspot/packages', [CaptivePortalController::class, 'packages']);
+Route::post('/hotspot/login', [CaptivePortalController::class, 'login']);
+Route::post('/hotspot/voucher', [CaptivePortalController::class, 'voucher']);
+Route::post('/hotspot/pay', [CaptivePortalController::class, 'pay']);
+Route::post('/hotspot/payment/callback', [CaptivePortalController::class, 'paymentCallback']);
