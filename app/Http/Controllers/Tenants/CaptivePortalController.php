@@ -284,8 +284,8 @@ class CaptivePortalController extends Controller
             } else {
                 // If we couldn't persist the payment record, but we have an intasend_reference, try to find the record later
                 if (!empty($intasend_reference)) {
-                    // Create a lightweight DB entry in a simple table or dispatch a job with the invoice identifier
-                    \App\Jobs\CheckIntaSendPaymentStatus::dispatch($paymentId)->delay(now()->addSeconds(15));
+                    // Dispatch a job with the invoice identifier so the status checker can operate without a DB id
+                    \App\Jobs\CheckIntaSendPaymentStatus::dispatch($intasend_reference)->delay(now()->addSeconds(15));
                 }
             }
 
