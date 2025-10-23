@@ -52,7 +52,8 @@ Route::get('/', function () {
 | Authenticated + Subscription Checked Routes (Tenants)
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth', 'verified', 'check.subscription'])->group(function () {
+Route::middleware(['auth', 'verified', 'check.subscription'])->group(function () 
+    {
 
 
         // Dashboard
@@ -169,7 +170,15 @@ Route::middleware(['auth', 'verified', 'check.subscription'])->group(function ()
 
         Route::get('settings/notifications', [TenantNotificationSettingsController::class, 'edit'])->name('settings.notifications.edit');
         Route::post('settings/notifications', [TenantNotificationSettingsController::class, 'update'])->name('settings.notifications.update');
-});
+
+
+
+    });
+
+
+
+
+
 
 /*
 |--------------------------------------------------------------------------
@@ -187,6 +196,16 @@ Route::get('/payment/success', function () {
     return redirect()->route('dashboard');
 })->name('payment.success');
 
+
+
+
+
+
+
+
+
+
+
 /*
 |--------------------------------------------------------------------------
 | Profile Routes
@@ -197,6 +216,15 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+
+
+
+
+
+
+
+
 
 /*
 |--------------------------------------------------------------------------

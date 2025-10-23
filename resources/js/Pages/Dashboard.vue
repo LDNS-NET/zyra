@@ -23,8 +23,7 @@ import {
     TrendingUp,
     Activity,
     Check,
-    X,
-    Clock,
+    X
 } from 'lucide-vue-next';
 
 const props = defineProps(['stats']);
@@ -96,7 +95,7 @@ const getGreeting = () => {
                         ><a
                             href="https://payment.intasend.com/pay/8d7f60c4-f2c2-4642-a2b6-0654a3cc24e3/"
                             target="_blank"
-                            class="rounded-xl bg-blue-400 px-3 py-1 dark:bg-green-400"
+                            class="rounded-xl "
                         >
                             Make Payment
                         </a>

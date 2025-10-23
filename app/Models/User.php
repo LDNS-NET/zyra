@@ -20,6 +20,7 @@ class User extends Authenticatable
         'password',
         'username',
         'business_name',
+        'subscription_expires_at',
         'is_super_admin',
         'email_verified_at',
         'last_login_at',

@@ -27,7 +27,7 @@ class TenantSettingsController extends Controller
         $sms_gateways = \App\Models\TenantSmsGateway::where('tenant_id', $tenantId)->get();
         $whatsapp_gateways = \App\Models\TenantWhatsappGateway::where('tenant_id', $tenantId)->get();
 
-        return Inertia::render('Tenants/Settings/Index', [
+        return Inertia::render('Settings/Index', [
             'settings' => $settings,
             'payment_gateways' => $payment_gateways,
             'sms_gateways' => $sms_gateways,
