@@ -328,8 +328,10 @@ watch(theme, (val) => {
                             </DropdownLink>
 
                             <DropdownLink
-                                :href="route('settings.index')"
-                                :active="route().current('settings.index')"
+                                :href="route('settings.general.edit')"
+                                :active="
+                                    route().current('settings.general.edit')
+                                "
                                 class="flex"
                             >
                                 <Settings class="mr-2 h-4 w-4" />

@@ -8,6 +8,7 @@
     "require": {
         "php": "^8.2",
         "africastalking/africastalking": "^3.0",
+        "evilfreelancer/routeros-api-php": "^1.6",
         "inertiajs/inertia-laravel": "^2.0",
         "intasend/intasend-php": "^1.1",
         "laravel/breeze": "^2.3",

@@ -5,38 +5,43 @@ namespace App\Http\Controllers\Tenants;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\TenantGeneralSetting;
-use Inertia\Inertia;
+use App\Models\Tenant;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
-use App\Models\Tenant;
+use Illuminate\Support\Facades\Cache;
+use Inertia\Inertia;
 
 class TenantGeneralSettingsController extends Controller
 {
     /**
-     * Show the general settings form.
+     * Display the general settings form.
      */
     public function edit(Request $request)
     {
-        $tenantId = tenant('id') ?? ($request->user() ? $request->user()->tenant_id : null);
+        // Determine current tenant ID
+        $tenantId = tenant('id') ?? optional($request->user())->tenant_id;
+
         if (!$tenantId && app()->environment('local')) {
-            $tenantId = \App\Models\Tenant::first()?->id;
+            $tenantId = Tenant::first()?->id;
         }
+
         if (!$tenantId) {
             abort(400, 'No tenant context available');
         }
 
-        $setting = TenantGeneralSetting::where('tenant_id', $tenantId)
-            ->remember(60)
-            ->first();
+        // Cache tenant settings safely for 1 minute (60 seconds)
+        $setting = Cache::remember("tenant_general_setting_{$tenantId}", 60, function () use ($tenantId) {
+            return TenantGeneralSetting::where('tenant_id', $tenantId)->first();
+        });
+
         $tenant = Tenant::find($tenantId);
         $settings = $setting ? $setting->toArray() : [];
-        if (empty($settings['business_name']) && $tenant) {
-            $settings['business_name'] = $tenant->business_name;
-        }
-        if (empty($settings['logo']) && !empty($tenant->logo)) {
-            $settings['logo'] = $tenant->logo;
-        }
-        return Inertia::render('Tenants/Settings/General', [
+
+        // Fill missing data from tenant model
+        $settings['business_name'] = $settings['business_name'] ?? $tenant?->business_name;
+        $settings['logo'] = $settings['logo'] ?? $tenant?->logo;
+
+        return Inertia::render('Settings/General/General', [
             'settings' => $settings,
         ]);
     }
@@ -46,40 +51,49 @@ class TenantGeneralSettingsController extends Controller
      */
     public function update(Request $request)
     {
-        $tenantId = tenant('id') ?? ($request->user() ? $request->user()->tenant_id : null);
+        $tenantId = tenant('id') ?? optional($request->user())->tenant_id;
+
         if (!$tenantId && app()->environment('local')) {
-            $tenantId = \App\Models\Tenant::first()?->id;
+            $tenantId = Tenant::first()?->id;
         }
+
         if (!$tenantId) {
             abort(400, 'No tenant context available');
         }
 
         $validator = Validator::make($request->all(), [
             // Business Information
-            'business_type' => 'required|in:isp,wisp,telecom,other',
+            'business_name'  => 'nullable|string|max:255',
+            'business_type'  => 'required|in:isp,wisp,telecom,other',
+
             // Contact Information
-            'support_email' => 'nullable|email|max:255',
-            'support_phone' => 'nullable|string|max:20',
-            'whatsapp' => 'nullable|string|max:20',
-            // Address Information
-            'address' => 'nullable|string|max:255',
-            'city' => 'nullable|string|max:100',
-            'state' => 'nullable|string|max:100',
-            'postal_code' => 'nullable|string|max:20',
-            'country' => 'nullable|string|max:100',
+            'support_email'  => 'nullable|email|max:255',
+            'support_phone'  => 'nullable|string|max:20',
+            'whatsapp'       => 'nullable|string|max:20',
+
+            // Address
+            'address'        => 'nullable|string|max:255',
+            'city'           => 'nullable|string|max:100',
+            'state'          => 'nullable|string|max:100',
+            'postal_code'    => 'nullable|string|max:20',
+            'country'        => 'nullable|string|max:100',
+
             // Online Presence
-            'website' => 'nullable|url|max:255',
-            'facebook' => 'nullable|url|max:255',
-            'twitter' => 'nullable|url|max:255',
-            'instagram' => 'nullable|url|max:255',
-            // Business Hours & Preferences
+            'website'        => 'nullable|url|max:255',
+            'facebook'       => 'nullable|url|max:255',
+            'twitter'        => 'nullable|url|max:255',
+            'instagram'      => 'nullable|url|max:255',
+
+            // Preferences
             'business_hours' => 'nullable|string|max:500',
-            'timezone' => 'required|string|max:50',
-            'currency' => 'required|string|max:10',
-            'language' => 'required|string|max:10',
+            'timezone'       => 'required|string|max:50',
+            'currency'       => 'required|string|max:10',
+            'language'       => 'required|string|max:10',
+
             // Branding
-            'logo' => 'nullable|file|image|max:2048',
-            'theme' => 'nullable|in:light,dark,system',
+            'logo'           => 'nullable|file|image|max:2048',
+            'theme'          => 'nullable|in:light,dark,system',
+            'remove_logo'    => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -90,36 +104,36 @@ class TenantGeneralSettingsController extends Controller
 
         $data = $validator->validated();
 
-        // Handle logo upload
+        // Handle logo upload/removal
         if ($request->hasFile('logo')) {
-            $logo = $request->file('logo');
-            $logoPath = $logo->store('public/logos');
-            $data['logo'] = Storage::url($logoPath);
-        } elseif ($request->get('remove_logo')) {
+            $path = $request->file('logo')->store('public/logos');
+            $data['logo'] = Storage::url($path);
+        } elseif (!empty($data['remove_logo'])) {
             $data['logo'] = null;
         }
 
-        // Update or create the general settings
+        // Save settings
         TenantGeneralSetting::updateOrCreate(
-            [
-                'tenant_id' => $tenantId,
-            ],
+            ['tenant_id' => $tenantId],
             array_merge($data, [
                 'created_by' => auth()->id(),
                 'last_updated_by' => auth()->id(),
             ])
         );
-        cache()->forget("tenant_general_setting_{$tenantId}");
 
-        // Optionally update business_name/logo in Tenant model for global use
-        $tenant = Tenant::find($tenantId);
-        if ($tenant) {
+        // Clear cache
+        Cache::forget("tenant_general_setting_{$tenantId}");
+
+        // Sync with Tenant model
+        if ($tenant = Tenant::find($tenantId)) {
             if (!empty($data['business_name'])) {
                 $tenant->business_name = $data['business_name'];
             }
-            if (isset($data['logo'])) {
+
+            if (array_key_exists('logo', $data)) {
                 $tenant->logo = $data['logo'];
             }
+
             $tenant->save();
         }
 

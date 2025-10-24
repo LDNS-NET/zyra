@@ -109,6 +109,22 @@ Route::middleware(['auth', 'verified', 'check.subscription'])->group(function ()
         // SMS Templates
         Route::resource('smstemplates', TenantSMSTemplateController::class)->only(['index', 'create','update', 'store', 'destroy']);
 
+        //Hotspot Settings
+        Route::get('settings/hotspot', [TenantHotspotSettingsController::class, 'edit'])->name('settings.hotspot.edit');
+        Route::post('settings/hotspot', [TenantHotspotSettingsController::class, 'update'])->name('settings.hotspot.update');
+
+        //payment gateways settings
+        Route::get('settings/payment', [TenantPaymentGatewayController::class, 'edit'])->name('settings.payment.edit');
+        Route::post('settings/payment', [TenantPaymentGatewayController::class, 'update'])->name('settings.payment.update');
+
+        //sms gateway settings
+        Route::get('settings/sms', [TenantSmsGatewayController::class, 'edit'])->name('settings.sms.edit');
+        Route::post('settings/sms', [TenantSmsGatewayController::class, 'update'])->name('settings.sms.update');
+
+        //general settings
+        Route::get('settings/general', [TenantGeneralSettingsController::class, 'edit'])->name('settings.general.edit');
+        Route::post('settings/general', [TenantGeneralSettingsController::class, 'update'])->name('settings.general.update');
+
         //mikrotiks
         Route::resource('mikrotiks', TenantMikrotikController::class);
         Route::get('mikrotiks/{mikrotik}/test-connection', [TenantMikrotikController::class, 'testConnection'])->name('mikrotiks.testConnection');
@@ -144,34 +160,7 @@ Route::middleware(['auth', 'verified', 'check.subscription'])->group(function ()
 
         // Tenant settings routes
 
-        Route::get('/settings', [TenantSettingsController::class, 'index'])->name('settings.index');
-
-        Route::get('settings/general', [TenantGeneralSettingsController::class, 'edit'])->name('settings.general.edit');
-        Route::post('settings/general', [TenantGeneralSettingsController::class, 'update'])->name('settings.general.update');
-
-        Route::get('settings/payout', [TenantPayoutSettingsController::class, 'edit'])->name('settings.payout.edit');
-        Route::post('settings/payout', [TenantPayoutSettingsController::class, 'update'])->name('settings.payout.update');
-
-        Route::get('settings/payment-gateway', [TenantPaymentGatewayController::class, 'edit'])->name('settings.payment_gateway.edit');
-        Route::post('settings/payment-gateway', [TenantPaymentGatewayController::class, 'update'])->name('settings.payment_gateway.update');
-        Route::post('settings/payment-gateway/test', [TenantPaymentGatewayController::class, 'test'])->name('settings.payment_gateway.test');
-
-        Route::get('settings/sms-gateway', [TenantSmsGatewayController::class, 'edit'])->name('settings.sms_gateway.edit');
-        Route::post('settings/sms-gateway', [TenantSmsGatewayController::class, 'update'])->name('settings.sms_gateway.update');
-
-        Route::get('settings/whatsapp-gateway', [TenantWhatsappGatewayController::class, 'edit'])->name('settings.whatsapp_gateway.edit');
-        Route::post('settings/whatsapp-gateway', [TenantWhatsappGatewayController::class, 'update'])->name('settings.whatsapp_gateway.update');
-
-        Route::get('settings/hotspot', [TenantHotspotSettingsController::class, 'edit'])->name('settings.hotspot.edit');
-        Route::post('settings/hotspot', [TenantHotspotSettingsController::class, 'update'])->name('settings.hotspot.update');
-
-        Route::get('settings/general', [TenantGeneralSettingsController::class, 'edit'])->name('settings.general.edit');
-        Route::post('settings/general', [TenantGeneralSettingsController::class, 'update'])->name('settings.general.update');
-
-        Route::get('settings/notifications', [TenantNotificationSettingsController::class, 'edit'])->name('settings.notifications.edit');
-        Route::post('settings/notifications', [TenantNotificationSettingsController::class, 'update'])->name('settings.notifications.update');
-
-
+        
 
     });
 

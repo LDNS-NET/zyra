@@ -79,7 +79,7 @@ const getGreeting = () => {
         <div class="space-y-6 p-6">
             <!-- Pay Subscription Button & Duration -->
             <div class="mb-4 flex items-center justify-between">
-                <div v-if="expiresAt && daysRemaining <= 30" class="items flex">
+                <div v-if="expiresAt && daysRemaining <= 5" class="items flex">
                     <template v-if="expiresAt">
                         <button
                             class="rounded-xl bg-blue-400 px-3 py-1 dark:bg-green-400"
@@ -89,7 +89,7 @@ const getGreeting = () => {
                         </button>
                     </template>
                 </div>
-                <div v-if="expiresAt && daysRemaining <= 30" class="ml-4">
+                <div v-if="expiresAt && daysRemaining <= 5" class="ml-4">
                     <PrimaryButton
                         class="rounded-xl px-3 py-1 hover:bg-blue-600 dark:bg-green-400 dark:hover:bg-green-600"
                         ><a

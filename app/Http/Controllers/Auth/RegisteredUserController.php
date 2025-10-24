@@ -4,14 +4,17 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Tenant;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Str;
 
 class RegisteredUserController extends Controller
 {
@@ -38,20 +41,40 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'username' => $request->username,
-            'password' => Hash::make($request->password),
+        $user = null;
 
-            // Set subscription to start today( registration day) and expire in 20 days
-            'subscription_expires_at' => now()->addDays(5), // this is trial period for all registered users
-            'is_suspended' => false,
-        ]);
+        DB::transaction(function () use ($request, &$user) {
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'username' => $request->username,
+                'password' => Hash::make($request->password),
+                // Set subscription to start today (registration day)
+                'subscription_expires_at' => now()->addDays(14),
+                'is_suspended' => false,
+            ]);
+
+            // Create tenant using same basic details and associate with user
+            $tenantId = (string) Str::uuid();
+            // Insert directly into tenants table to ensure required columns are set
+            DB::table('tenants')->insert([
+                'id' => $tenantId,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'username' => $user->username,
+                'data' => json_encode(['name' => $user->name]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Associate user with tenant
+            $user->tenant_id = $tenantId;
+            $user->save();
+        });
 
         event(new Registered($user));
-
         Auth::login($user);
 
         return redirect(route('dashboard', absolute: false));

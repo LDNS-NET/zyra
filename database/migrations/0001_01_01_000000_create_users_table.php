@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('name')->unique();
             $table->string('email')->unique();
             $table->string('username')->unique();
+            $table->string('tenant_id')->nullable()->index();
             $table->string('wallet_id')->nullable();
             $table->string('phone')->unique();
             $table->timestamp('email_verified_at')->nullable();

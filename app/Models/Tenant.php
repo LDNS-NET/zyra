@@ -14,12 +14,10 @@ class Tenant extends BaseTenant
 
     protected $fillable = [
         'id',
-        'wallet_id',
-        'wallet_balance',
-        'business_name',
-        'username',
+        'name',
         'email',
         'phone',
+        'username',
     ];
 
     public function configure()
@@ -40,7 +38,7 @@ class Tenant extends BaseTenant
     {
         return [
             'id',
-            'business_name',
+            'name',
             'username',
             'email',
             'phone',

@@ -19,7 +19,7 @@ class User extends Authenticatable
         'phone',
         'password',
         'username',
-        'business_name',
+        'tenant_id',
         'subscription_expires_at',
         'is_super_admin',
         'email_verified_at',
