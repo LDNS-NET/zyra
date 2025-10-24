@@ -15,10 +15,14 @@ return new class extends Migration {
             $table->string('sender_id')->nullable();
             $table->boolean('is_active')->default(false);
             $table->string('label')->nullable();
+            $table->boolean('is_default')->default(false);
             $table->timestamps();
             $table->softDeletes();
+
             $table->foreign('tenant_id')->references('id')->on('tenants')->onDelete('cascade');
+            $table->unique(['tenant_id', 'provider']); // ✅ prevent duplicates
         });
+
     }
 
     public function down(): void {

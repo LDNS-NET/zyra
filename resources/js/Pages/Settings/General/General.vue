@@ -1,144 +1,56 @@
 <script setup>
+import { ref, onMounted, watch } from 'vue';
 import { useToast } from 'vue-toastification';
-const toast = useToast();
-import { ref, onMounted } from 'vue';
 import { router, usePage, useForm, Head } from '@inertiajs/vue3';
 import { useTheme } from '@/composables/useTheme';
-import TextInput from '@/Components/TextInput.vue';
+import Layout from '../Layout.vue';
 import InputLabel from '@/Components/InputLabel.vue';
+import TextInput from '@/Components/TextInput.vue';
 import TextArea from '@/Components/TextArea.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { Building2, Phone, MapPin, Globe, Clock } from 'lucide-vue-next';
-import Layout from '../Layout.vue';
 
 const page = usePage();
+const toast = useToast();
 const { setTheme } = useTheme();
 
-const user = usePage().props.auth.user;
+// Get settings from backend
+const settings = page.props.settings || {};
 
+// Initialize the form with default or backend values
 const form = useForm({
-    business_name: '',
-    business_type: user.business_type || 'isp',
-    logo: user.logo || '',
-    theme: user.email || 'system',
-    support_email: user.support_email || '',
-    support_phone: user.support_phone || '',
-    whatsapp: user.whatsapp || '',
-    address: user.address || '',
-    city: user.city || '',
-    state: user.state || '',
-    postal_code: user.postal_code || '',
-    website: user.website || '',
-    facebook: user.facebook || '',
-    twitter: user.twitter || '',
-    instagram: user.instagram || '',
+    business_name: settings.business_name || '',
+    business_type: settings.business_type || 'isp',
+    logo: settings.logo || '',
+    theme: settings.theme || 'system',
+    support_email: settings.support_email || '',
+    support_phone: settings.support_phone || '',
+    whatsapp: settings.whatsapp || '',
+    address: settings.address || '',
+    city: settings.city || '',
+    state: settings.state || '',
+    postal_code: settings.postal_code || '',
+    country: settings.country || 'Kenya',
+    website: settings.website || '',
+    facebook: settings.facebook || '',
+    twitter: settings.twitter || '',
+    instagram: settings.instagram || '',
     business_hours:
+        settings.business_hours ||
         'Monday - Friday: 8:00 AM - 6:00 PM\nSaturday: 9:00 AM - 4:00 PM\nSunday: Closed',
-    timezone: 'Africa/Nairobi',
-    currency: 'KES',
-    language: 'en',
-});
-
-function setFormFromBackend(settings) {
-    form.value = {
-        business_name:
-            typeof settings.business_name === 'number'
-                ? settings.business_name
-                : (settings.business_name ?? ''),
-        business_type:
-            typeof settings.business_type === 'number'
-                ? settings.business_type
-                : (settings.business_type ?? 'isp'),
-        logo:
-            typeof settings.logo === 'number'
-                ? settings.logo
-                : (settings.logo ?? ''),
-        theme:
-            typeof settings.theme === 'number'
-                ? settings.theme
-                : (settings.theme ?? 'system'),
-        support_email:
-            typeof settings.support_email === 'number'
-                ? settings.support_email
-                : (settings.support_email ?? ''),
-        support_phone:
-            typeof settings.support_phone === 'number'
-                ? settings.support_phone
-                : (settings.support_phone ?? ''),
-        whatsapp:
-            typeof settings.whatsapp === 'number'
-                ? settings.whatsapp
-                : (settings.whatsapp ?? ''),
-        address:
-            typeof settings.address === 'number'
-                ? settings.address
-                : (settings.address ?? ''),
-        city:
-            typeof settings.city === 'number'
-                ? settings.city
-                : (settings.city ?? ''),
-        state:
-            typeof settings.state === 'number'
-                ? settings.state
-                : (settings.state ?? ''),
-        postal_code:
-            typeof settings.postal_code === 'number'
-                ? settings.postal_code
-                : (settings.postal_code ?? ''),
-        country:
-            typeof settings.country === 'number'
-                ? settings.country
-                : (settings.country ?? 'Kenya'),
-        website:
-            typeof settings.website === 'number'
-                ? settings.website
-                : (settings.website ?? ''),
-        facebook:
-            typeof settings.facebook === 'number'
-                ? settings.facebook
-                : (settings.facebook ?? ''),
-        twitter:
-            typeof settings.twitter === 'number'
-                ? settings.twitter
-                : (settings.twitter ?? ''),
-        instagram:
-            typeof settings.instagram === 'number'
-                ? settings.instagram
-                : (settings.instagram ?? ''),
-        business_hours:
-            typeof settings.business_hours === 'number'
-                ? settings.business_hours
-                : (settings.business_hours ??
-                  'Monday - Friday: 8:00 AM - 6:00 PM\nSaturday: 9:00 AM - 4:00 PM\nSunday: Closed'),
-        timezone:
-            typeof settings.timezone === 'number'
-                ? settings.timezone
-                : (settings.timezone ?? 'Africa/Nairobi'),
-        currency:
-            typeof settings.currency === 'number'
-                ? settings.currency
-                : (settings.currency ?? 'KES'),
-        language:
-            typeof settings.language === 'number'
-                ? settings.language
-                : (settings.language ?? 'en'),
-    };
-}
-
-onMounted(() => {
-    setFormFromBackend(page.props.settings || {});
-    if (form.value.theme) setTheme(form.value.theme);
+    timezone: settings.timezone || 'Africa/Nairobi',
+    currency: settings.currency || 'KES',
+    language: settings.language || 'en',
 });
 
 const logoFile = ref(null);
-const logoPreview = ref('');
+const logoPreview = ref(form.logo || '');
 
 onMounted(() => {
-    // Sync global theme/color from loaded settings
-    if (form.value.theme) setTheme(form.value.theme);
-    // if (form.value.primary_color) setPrimaryColor(form.value.primary_color)
+    if (form.theme) setTheme(form.theme);
 });
 
+// Handle logo changes
 function onLogoChange(e) {
     const file = e.target.files[0];
     if (file) {
@@ -150,48 +62,42 @@ function onLogoChange(e) {
         reader.readAsDataURL(file);
     }
 }
+
 function removeLogo() {
     logoFile.value = null;
     logoPreview.value = '';
-    form.value.logo = '';
-    form.value.remove_logo = true;
+    form.logo = '';
+    form.remove_logo = true;
 }
 
-const success = ref(page.props.flash?.success || '');
-const error = ref('');
 const loading = ref(false);
 
 function submit() {
     loading.value = true;
-    error.value = '';
-    success.value = '';
 
     const formData = new FormData();
-    for (const [key, value] of Object.entries(form.value)) {
+    for (const [key, value] of Object.entries(form)) {
         if (typeof value !== 'undefined' && value !== null) {
             formData.append(key, value);
         }
     }
+
     if (logoFile.value) {
         formData.append('logo', logoFile.value);
     }
 
     router.post(route('settings.general.update'), formData, {
         forceFormData: true,
-        onSuccess: (page) => {
-            loading.value = false;
-            logoFile.value = null;
-            logoPreview.value = '';
-            if (page?.props?.settings) {
-                setFormFromBackend(page.props.settings);
-                if (form.value.theme) setTheme(form.value.theme);
-            }
+        onSuccess: () => {
             toast.success('General settings updated successfully.');
+            loading.value = false;
+
+            // Refresh the page props to show saved details
+            router.reload({ only: ['settings'] });
         },
         onError: (errs) => {
-            error.value = Object.values(errs).flat().join(' ');
+            toast.error(Object.values(errs).flat().join(' '));
             loading.value = false;
-            toast.error(error.value);
         },
         onFinish: () => {
             loading.value = false;

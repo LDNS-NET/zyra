@@ -1,7 +1,6 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue';
-import { Head } from '@inertiajs/vue3';
-import { router, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import Modal from '@/Components/Modal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -20,26 +19,27 @@ const props = defineProps({
     gateways: { type: Array, default: () => [] },
 });
 
-const showModal = ref(false);
 const showDetailsModal = ref(false);
-const editing = ref(false);
 const detailsGateway = ref({});
 
+// ✅ Default gateway configuration
 const defaultGateway = {
-    id: 'default-talksasa',
     provider: 'talksasa',
     label: 'TALKSASA (Default)',
     is_active: true,
     username: '',
     sender_id: '',
-    webhook_url: '',
-    status_callback_url: '',
-    region: '',
-    custom_parameters: {},
     api_key: '',
     api_secret: '',
     is_default: true,
 };
+
+// ✅ Supported gateways
+const allGateways = ref([
+    { provider: 'talksasa', label: 'TALKSASA (Default)', is_default: true },
+    { provider: 'africastalking', label: 'Africa’s Talking' },
+    { provider: 'twilio', label: 'Twilio' },
+]);
 
 const form = useForm({
     id: '',
@@ -48,15 +48,12 @@ const form = useForm({
     api_secret: '',
     username: '',
     sender_id: '',
-    webhook_url: '',
-    status_callback_url: '',
-    region: '',
-    custom_parameters: {},
     label: '',
-    is_active: false,
+    is_active: true,
+    is_default: true,
 });
 
-// --- Utility: Fill form fields from a gateway ---
+// ✅ Helper: Apply DB gateway data to form
 function setFormFromGateway(gateway) {
     Object.assign(form, {
         id: gateway.id || '',
@@ -65,106 +62,89 @@ function setFormFromGateway(gateway) {
         api_secret: gateway.api_secret || '',
         username: gateway.username || '',
         sender_id: gateway.sender_id || '',
-        webhook_url: gateway.webhook_url || '',
-        status_callback_url: gateway.status_callback_url || '',
-        region: gateway.region || '',
-        custom_parameters: gateway.custom_parameters || {},
         label: gateway.label || '',
         is_active: !!gateway.is_active,
+        is_default: !!gateway.is_default,
     });
 }
 
-// --- Lifecycle ---
-onMounted(() => {
-    const gateway = props.gateways[0] || defaultGateway;
-    setFormFromGateway(gateway);
+// ✅ On page load, get latest saved gateway from database
+onMounted(async () => {
+    try {
+        const response = await fetch(route('settings.sms.json'));
+        const data = await response.json();
+        if (data.gateways && data.gateways.length > 0) {
+            // Always pick the latest record
+            const latest = data.gateways[data.gateways.length - 1];
+            setFormFromGateway(latest);
+        } else {
+            setFormFromGateway(defaultGateway);
+        }
+    } catch (e) {
+        console.error('Failed to load gateway:', e);
+        setFormFromGateway(defaultGateway);
+    }
 });
 
-// --- Watchers ---
+// ✅ Watch dropdown change
 watch(
     () => form.provider,
-    (provider) => {
-        const gw = props.gateways.find((g) => g.provider === provider);
-        if (gw) setFormFromGateway(gw);
-    },
+    (provider, oldVal) => {
+        if (provider && provider !== oldVal) {
+            const gw =
+                props.gateways.find((g) => g.provider === provider) ||
+                allGateways.value.find((g) => g.provider === provider) ||
+                defaultGateway;
+            setFormFromGateway(gw);
+        }
+    }
 );
 
-// --- Actions ---
+// ✅ Open modal to show saved gateway
 async function openDetails() {
     try {
-        const response = await fetch('settings/sms-gateway/json', {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        });
+        const response = await fetch(route('settings.sms.json'));
         const data = await response.json();
-        detailsGateway.value = data.props?.gateways?.[0] || defaultGateway;
+        detailsGateway.value =
+            data.gateways?.[data.gateways.length - 1] ||
+            data.gateways?.find((g) => g.is_default) ||
+            defaultGateway;
     } catch {
-        detailsGateway.value = props.gateways[0] || defaultGateway;
+        detailsGateway.value = defaultGateway;
     }
     showDetailsModal.value = true;
 }
 
-function openAdd() {
-    editing.value = false;
-    form.reset();
-    showModal.value = true;
-}
-
-function openEdit(gateway) {
-    editing.value = true;
-    form.reset();
-    setFormFromGateway(gateway);
-    form.api_key = '';
-    form.api_secret = '';
-    showModal.value = true;
-}
-
+// ✅ Save gateway
 function save() {
-    const providerLabel = {
-        talksasa: 'TALKSASA',
-        africastalking: "Africa's Talking",
-        twilio: 'Twilio',
-        custom: 'Custom',
-    };
-    const providerName = providerLabel[form.provider] || form.provider;
+    form.provider = (form.provider || '').toString().trim().toLowerCase();
 
-    const loadingToastId = toast.info(
-        `Saving SMS gateway: ${providerName}...`,
-        toastOptions,
-    );
+    const providerName = form.provider || 'Unknown';
+    const loadingToastId = toast.info(`Saving ${providerName} settings...`, toastOptions);
 
-    const successHandler = () => {
-        showModal.value = false;
-        toast.dismiss(loadingToastId);
-        toast.success(
-            `${editing.value ? 'Updated' : 'Added'} SMS gateway: ${providerName}`,
-            toastOptions,
-        );
-    };
-
-    const errorHandler = (errors) => {
-        toast.dismiss(loadingToastId);
-        toast.error(
-            Object.values(errors).flat().join(' ') || 'Failed to save gateway.',
-            {
-                ...toastOptions,
-                timeout: 7000,
-            },
-        );
-    };
-
-    const method = editing.value ? router.put : router.post;
-    method(route('settings.sms.update'), form, {
-        onSuccess: successHandler,
-        onError: errorHandler,
+    router.post(route('settings.sms.update'), form, {
+        onSuccess: () => {
+            toast.dismiss(loadingToastId);
+            toast.success('SMS gateway updated successfully', toastOptions);
+            router.reload({ only: ['gateways'] });
+        },
+        onError: (errors) => {
+            toast.dismiss(loadingToastId);
+            toast.error(
+                Object.values(errors).flat().join(' ') || 'Failed to save gateway.',
+                { ...toastOptions, timeout: 7000 }
+            );
+        },
     });
 }
 </script>
+
 
 <template>
     <Layout>
         <Head title="SMS Gateway" />
         <div
-            class="w-full max-w-lg rounded-xl border border-indigo-100 bg-white p-8 shadow-lg dark:border-blue-700 dark:bg-gray-800"
+            class="w-full max-w-2xl rounded-xl border border-indigo-100 bg-white p-8 shadow-lg dark:border-blue-700 dark:bg-gray-800"
         >
             <header class="mb-6 flex items-center">
                 <svg
@@ -191,28 +171,27 @@ function save() {
                 </h3>
             </header>
 
-            <label class="mb-2 block font-semibold text-indigo-600"
-                >Select SMS Gateway</label
-            >
+            <!-- Select Gateway -->
+            <label class="mb-2 block font-semibold text-indigo-600">
+                Select SMS Gateway
+            </label>
             <select
                 v-model="form.provider"
                 class="input input-bordered mb-6 w-full focus:ring-2 focus:ring-indigo-400 dark:bg-gray-700"
             >
-                <option value="talksasa">TALKSASA (Default)</option>
-                <option value="bytewave">Bytewave</option>
-                <option value="africastalking">Africa's Talking</option>
-                <option value="textsms">TextSMS</option>
-                <option value="mobitech">Mobitech</option>
-                <option value="twilio">Twilio</option>
-                <option value="custom">Custom</option>
+                <option
+                    v-for="g in allGateways"
+                    :key="g.provider"
+                    :value="g.provider"
+                >
+                    {{ g.label }}
+                </option>
             </select>
 
-            <!-- Dynamic Input Fields -->
+            <!-- Gateway Form -->
             <transition name="fade">
                 <div v-if="form.provider" class="space-y-4">
-                    <template
-                        v-if="['talksasa', 'bytewave'].includes(form.provider)"
-                    >
+                    <template v-if="form.provider === 'talksasa'">
                         <InputField
                             label="API Key"
                             v-model="form.api_key"
@@ -224,13 +203,7 @@ function save() {
                         />
                     </template>
 
-                    <template
-                        v-else-if="
-                            ['africastalking', 'textsms', 'mobitech'].includes(
-                                form.provider,
-                            )
-                        "
-                    >
+                    <template v-else-if="form.provider === 'africastalking'">
                         <InputField label="Username" v-model="form.username" />
                         <InputField
                             label="API Key"
@@ -243,17 +216,17 @@ function save() {
                         />
                     </template>
 
-                    <template v-else>
+                    <template v-else-if="form.provider === 'twilio'">
                         <InputField
-                            label="API Key"
-                            v-model="form.api_key"
-                            type="password"
+                            label="Account SID"
+                            v-model="form.username"
                         />
                         <InputField
-                            label="API Secret"
+                            label="Auth Token"
                             v-model="form.api_secret"
                             type="password"
                         />
+                        <InputField label="From Number" v-model="form.sender_id" />
                     </template>
 
                     <div class="mt-6 flex justify-between">
@@ -271,7 +244,7 @@ function save() {
                         </PrimaryButton>
                     </div>
 
-                    <!-- Modal: Gateway Details -->
+                    <!-- Modal -->
                     <Modal
                         :show="showDetailsModal"
                         @close="showDetailsModal = false"
@@ -287,35 +260,20 @@ function save() {
                         >
                             <Detail
                                 label="Provider"
-                                :value="detailsGateway.provider?.toUpperCase()"
+                                :value="detailsGateway.provider"
                             />
-                            <Detail
-                                label="Label"
-                                :value="detailsGateway.label"
-                            />
+                            <Detail label="Label" :value="detailsGateway.label" />
                             <Detail
                                 label="Username"
                                 :value="detailsGateway.username"
-                            />
-                            <Detail
-                                label="API Key"
-                                :value="detailsGateway.api_key"
                             />
                             <Detail
                                 label="Sender ID"
                                 :value="detailsGateway.sender_id"
                             />
                             <Detail
-                                label="API Secret"
-                                :value="detailsGateway.api_secret"
-                            />
-                            <Detail
                                 label="Active"
-                                :value="
-                                    detailsGateway.is_active
-                                        ? 'Active'
-                                        : 'Inactive'
-                                "
+                                :value="detailsGateway.is_active ? 'Active' : 'Inactive'"
                             />
                         </div>
 
@@ -334,7 +292,6 @@ function save() {
     </Layout>
 </template>
 
-<!-- Simple Reusable Inputs -->
 <script>
 export default {
     components: {
@@ -342,24 +299,24 @@ export default {
             props: ['label', 'modelValue', 'type'],
             emits: ['update:modelValue'],
             template: `
-              <div>
-                <label class="block font-semibold text-gray-700">{{ label }}</label>
-                <input
-                    :type="type || 'text'"
-                    :value="modelValue"
-                    @input="$emit('update:modelValue', $event.target.value)"
-                    class="input input-bordered w-full dark:bg-gray-700"
-                />
-              </div>
+                <div>
+                    <label class="block font-semibold text-gray-700">{{ label }}</label>
+                    <input
+                        :type="type || 'text'"
+                        :value="modelValue"
+                        @input="$emit('update:modelValue', $event.target.value)"
+                        class="input input-bordered w-full dark:bg-gray-700"
+                    />
+                </div>
             `,
         },
         Detail: {
             props: ['label', 'value'],
             template: `
-              <div v-if="value" class="flex items-center gap-2">
-                <span class="font-semibold text-gray-700">{{ label }}:</span>
-                <span class="rounded bg-indigo-100 px-2 py-1 text-sm text-indigo-700">{{ value }}</span>
-              </div>
+                <div v-if="value" class="flex items-center gap-2">
+                    <span class="font-semibold text-gray-700">{{ label }}:</span>
+                    <span class="rounded bg-indigo-100 px-2 py-1 text-sm text-indigo-700">{{ value }}</span>
+                </div>
             `,
         },
     },

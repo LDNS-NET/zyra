@@ -10,7 +10,14 @@ class TenantSmsGateway extends Model
 {
     use SoftDeletes;
     protected $fillable = [
-        'tenant_id', 'provider', 'username', 'api_key', 'sender_id', 'is_active', 'label', 'is_default'
+        'tenant_id', 
+        'provider', 
+        'username', 
+        'api_key', 
+        'sender_id', 
+        'is_active', 
+        'label', 
+        'is_default'
     ];
     protected $casts = [
         'is_active' => 'boolean',
