@@ -11,17 +11,28 @@ use Illuminate\Support\Facades\Cache;
 
 class TenantPaymentGatewayController extends Controller
 {
-    public function edit(Request $request)
+    /**
+     * Resolve the current tenant ID, including fallback for local dev.
+     */
+    protected function resolveTenantId(Request $request): string
     {
-        $tenantId = tenant('id') ?? ($request->user()?->tenant_id ?? null);
+        $tenantId = tenant('id') ?? $request->user()?->tenant_id;
 
         if (!$tenantId && app()->environment('local')) {
             $tenantId = Tenant::first()?->id;
         }
 
-        if (!$tenantId) {
-            abort(400, 'No tenant context available');
-        }
+        abort_if(!$tenantId, 400, 'No tenant context available.');
+
+        return $tenantId;
+    }
+
+    /**
+     * Show the tenant’s payment gateway configuration page.
+     */
+    public function edit(Request $request)
+    {
+        $tenantId = $this->resolveTenantId($request);
 
         $gateways = Cache::remember("tenant_payment_gateways_{$tenantId}", 60, function () use ($tenantId) {
             return TenantPaymentGateway::where('tenant_id', $tenantId)->get();
@@ -33,17 +44,12 @@ class TenantPaymentGatewayController extends Controller
         ]);
     }
 
+    /**
+     * Update or create the tenant’s payment gateway record.
+     */
     public function update(Request $request)
     {
-        $tenantId = tenant('id') ?? ($request->user()?->tenant_id ?? null);
-
-        if (!$tenantId && app()->environment('local')) {
-            $tenantId = Tenant::first()?->id;
-        }
-
-        if (!$tenantId) {
-            abort(400, 'No tenant context available');
-        }
+        $tenantId = $this->resolveTenantId($request);
 
         $validated = $request->validate([
             'provider' => 'required|in:intasend,mpesa,bank,custom',
@@ -58,6 +64,7 @@ class TenantPaymentGatewayController extends Controller
             'is_active' => 'nullable|boolean',
         ]);
 
+        // ✅ Ensure one record per tenant + provider + payout method
         TenantPaymentGateway::updateOrCreate(
             [
                 'tenant_id' => $tenantId,
@@ -67,11 +74,12 @@ class TenantPaymentGatewayController extends Controller
             array_merge($validated, [
                 'created_by' => auth()->id(),
                 'last_updated_by' => auth()->id(),
+                'is_active' => $validated['is_active'] ?? true,
             ])
         );
 
         Cache::forget("tenant_payment_gateways_{$tenantId}");
 
-        return redirect()->back()->with('success', 'Payment gateway updated successfully.');
+        return back()->with('success', 'Payment gateway updated successfully.');
     }
 }

@@ -120,6 +120,10 @@ Route::middleware(['auth', 'verified', 'check.subscription'])->group(function ()
         //sms gateway settings
         Route::get('settings/sms', [TenantSmsGatewayController::class, 'edit'])->name('settings.sms.edit');
         Route::post('settings/sms', [TenantSmsGatewayController::class, 'update'])->name('settings.sms.update');
+        Route::get('/settings/sms/show', [TenantSmsGatewayController::class, 'show'])->name('settings.sms.show');
+        Route::get('/settings/sms/json', [SmsGatewayController::class, 'getGateway'])->name('settings.sms.json');
+
+
 
         //general settings
         Route::get('settings/general', [TenantGeneralSettingsController::class, 'edit'])->name('settings.general.edit');

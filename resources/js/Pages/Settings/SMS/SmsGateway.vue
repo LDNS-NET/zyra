@@ -1,10 +1,11 @@
 <script setup>
+
 import { ref, watch, onMounted } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
+import Layout from '@/Pages/Settings/Layout.vue';
 import Modal from '@/Components/Modal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
-import Layout from '@/Pages/Settings/Layout.vue';
 
 const toast = useToast();
 const toastOptions = {
@@ -21,124 +22,121 @@ const props = defineProps({
 
 const showDetailsModal = ref(false);
 const detailsGateway = ref({});
+const currentGateway = ref({}); // ✅ Track the actual saved gateway
 
-// ✅ Default gateway configuration
+// Default + supported gateways
 const defaultGateway = {
     provider: 'talksasa',
     label: 'TALKSASA (Default)',
-    is_active: true,
     username: '',
     sender_id: '',
     api_key: '',
     api_secret: '',
+    is_active: true,
     is_default: true,
 };
 
-// ✅ Supported gateways
-const allGateways = ref([
+const allGateways = [
     { provider: 'talksasa', label: 'TALKSASA (Default)', is_default: true },
     { provider: 'africastalking', label: 'Africa’s Talking' },
     { provider: 'twilio', label: 'Twilio' },
-]);
+];
 
+// ✅ Form setup
 const form = useForm({
     id: '',
     provider: '',
-    api_key: '',
-    api_secret: '',
+    label: '',
     username: '',
     sender_id: '',
-    label: '',
+    api_key: '',
+    api_secret: '',
     is_active: true,
     is_default: true,
 });
 
-// ✅ Helper: Apply DB gateway data to form
-function setFormFromGateway(gateway) {
+// ✅ Fill form with gateway data
+function applyGatewayToForm(gateway) {
     Object.assign(form, {
         id: gateway.id || '',
         provider: gateway.provider || '',
-        api_key: gateway.api_key || '',
-        api_secret: gateway.api_secret || '',
+        label: gateway.label || '',
         username: gateway.username || '',
         sender_id: gateway.sender_id || '',
-        label: gateway.label || '',
+        api_key: gateway.api_key || '',
+        api_secret: gateway.api_secret || '',
         is_active: !!gateway.is_active,
         is_default: !!gateway.is_default,
     });
 }
 
-// ✅ On page load, get latest saved gateway from database
+// ✅ Fetch latest saved gateway from backend on mount
 onMounted(async () => {
     try {
         const response = await fetch(route('settings.sms.json'));
+        if (!response.ok) throw new Error('Failed to load saved gateway');
         const data = await response.json();
-        if (data.gateways && data.gateways.length > 0) {
-            // Always pick the latest record
-            const latest = data.gateways[data.gateways.length - 1];
-            setFormFromGateway(latest);
+
+        if (data.gateways?.length) {
+            currentGateway.value =
+                data.gateways.find((g) => g.is_default) ||
+                data.gateways[data.gateways.length - 1];
         } else {
-            setFormFromGateway(defaultGateway);
+            currentGateway.value = defaultGateway;
         }
-    } catch (e) {
-        console.error('Failed to load gateway:', e);
-        setFormFromGateway(defaultGateway);
+
+        applyGatewayToForm(currentGateway.value);
+    } catch (err) {
+        console.error('Gateway load failed:', err);
+        currentGateway.value = defaultGateway;
+        applyGatewayToForm(defaultGateway);
     }
 });
 
-// ✅ Watch dropdown change
+// ✅ Watch provider and sync
 watch(
     () => form.provider,
-    (provider, oldVal) => {
-        if (provider && provider !== oldVal) {
-            const gw =
-                props.gateways.find((g) => g.provider === provider) ||
-                allGateways.value.find((g) => g.provider === provider) ||
-                defaultGateway;
-            setFormFromGateway(gw);
-        }
-    }
+    (provider) => {
+        if (!provider) return;
+        const found =
+            props.gateways.find((g) => g.provider === provider) ||
+            allGateways.find((g) => g.provider === provider) ||
+            defaultGateway;
+        applyGatewayToForm(found);
+    },
 );
 
-// ✅ Open modal to show saved gateway
-async function openDetails() {
-    try {
-        const response = await fetch(route('settings.sms.json'));
-        const data = await response.json();
-        detailsGateway.value =
-            data.gateways?.[data.gateways.length - 1] ||
-            data.gateways?.find((g) => g.is_default) ||
-            defaultGateway;
-    } catch {
-        detailsGateway.value = defaultGateway;
-    }
+// ✅ Show current saved gateway details
+function openDetails() {
+    detailsGateway.value = currentGateway.value || defaultGateway;
     showDetailsModal.value = true;
 }
 
 // ✅ Save gateway
 function save() {
-    form.provider = (form.provider || '').toString().trim().toLowerCase();
-
-    const providerName = form.provider || 'Unknown';
-    const loadingToastId = toast.info(`Saving ${providerName} settings...`, toastOptions);
+    const provider = form.provider || 'Unknown';
+    const loading = toast.info(`Saving ${provider} settings...`, toastOptions);
 
     router.post(route('settings.sms.update'), form, {
         onSuccess: () => {
-            toast.dismiss(loadingToastId);
-            toast.success('SMS gateway updated successfully', toastOptions);
+            toast.dismiss(loading);
+            toast.success('SMS Gateway saved successfully', toastOptions);
             router.reload({ only: ['gateways'] });
         },
         onError: (errors) => {
-            toast.dismiss(loadingToastId);
+            toast.dismiss(loading);
             toast.error(
-                Object.values(errors).flat().join(' ') || 'Failed to save gateway.',
-                { ...toastOptions, timeout: 7000 }
+                Object.values(errors).flat().join(' ') || 'Save failed',
+                {
+                    ...toastOptions,
+                    timeout: 7000,
+                },
             );
         },
     });
 }
-</script>
 
+</script>
 
 <template>
     <Layout>
@@ -171,7 +169,7 @@ function save() {
                 </h3>
             </header>
 
-            <!-- Select Gateway -->
+            <!-- Select Provider -->
             <label class="mb-2 block font-semibold text-indigo-600">
                 Select SMS Gateway
             </label>
@@ -188,7 +186,7 @@ function save() {
                 </option>
             </select>
 
-            <!-- Gateway Form -->
+            <!-- Dynamic Fields -->
             <transition name="fade">
                 <div v-if="form.provider" class="space-y-4">
                     <template v-if="form.provider === 'talksasa'">
@@ -226,9 +224,13 @@ function save() {
                             v-model="form.api_secret"
                             type="password"
                         />
-                        <InputField label="From Number" v-model="form.sender_id" />
+                        <InputField
+                            label="From Number"
+                            v-model="form.sender_id"
+                        />
                     </template>
 
+                    <!-- Actions -->
                     <div class="mt-6 flex justify-between">
                         <PrimaryButton
                             class="btn btn-outline btn-info"
@@ -262,7 +264,10 @@ function save() {
                                 label="Provider"
                                 :value="detailsGateway.provider"
                             />
-                            <Detail label="Label" :value="detailsGateway.label" />
+                            <Detail
+                                label="Label"
+                                :value="detailsGateway.label"
+                            />
                             <Detail
                                 label="Username"
                                 :value="detailsGateway.username"
@@ -272,8 +277,12 @@ function save() {
                                 :value="detailsGateway.sender_id"
                             />
                             <Detail
-                                label="Active"
-                                :value="detailsGateway.is_active ? 'Active' : 'Inactive'"
+                                label="Status"
+                                :value="
+                                    detailsGateway.is_active
+                                        ? 'Active'
+                                        : 'Inactive'
+                                "
                             />
                         </div>
 
@@ -299,25 +308,25 @@ export default {
             props: ['label', 'modelValue', 'type'],
             emits: ['update:modelValue'],
             template: `
-                <div>
-                    <label class="block font-semibold text-gray-700">{{ label }}</label>
-                    <input
-                        :type="type || 'text'"
-                        :value="modelValue"
-                        @input="$emit('update:modelValue', $event.target.value)"
-                        class="input input-bordered w-full dark:bg-gray-700"
-                    />
-                </div>
-            `,
+        <div>
+          <label class="block font-semibold text-gray-700">{{ label }}</label>
+          <input
+            :type="type || 'text'"
+            :value="modelValue"
+            @input="$emit('update:modelValue', $event.target.value)"
+            class="input input-bordered w-full dark:bg-gray-700"
+          />
+        </div>
+      `,
         },
         Detail: {
             props: ['label', 'value'],
             template: `
-                <div v-if="value" class="flex items-center gap-2">
-                    <span class="font-semibold text-gray-700">{{ label }}:</span>
-                    <span class="rounded bg-indigo-100 px-2 py-1 text-sm text-indigo-700">{{ value }}</span>
-                </div>
-            `,
+        <div v-if="value" class="flex items-center gap-2">
+          <span class="font-semibold text-gray-700">{{ label }}:</span>
+          <span class="rounded bg-indigo-100 px-2 py-1 text-sm text-indigo-700">{{ value }}</span>
+        </div>
+      `,
         },
     },
 };

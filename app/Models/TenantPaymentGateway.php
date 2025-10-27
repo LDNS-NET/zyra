@@ -7,18 +7,35 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Crypt;
 
 class TenantPaymentGateway extends Model
+
 {
     use SoftDeletes;
+
     protected $fillable = [
-        'tenant_id', 'provider', 'api_key', 'payout_method', 'is_active', 'label', 'last_used_at', 'created_by'
+        'tenant_id',
+        'provider',
+        'payout_method',
+        'bank_name',
+        'bank_account',
+        'phone_number',
+        'till_number',
+        'paybill_business_number',
+        'paybill_account_number',
+        'label',
+        'is_active',
+        'created_by',
+        'last_updated_by',
     ];
-    protected $casts = [
-        'is_active' => 'boolean',
-        'last_used_at' => 'datetime',
-    ];
-    protected $hidden = ['api_key'];
-    public function setApiKeyAttribute($value) { $this->attributes['api_key'] = $value ? Crypt::encryptString($value) : null; }
-    public function getApiKeyAttribute($value) { return $value ? Crypt::decryptString($value) : null; }
-    public function tenant() { return $this->belongsTo(Tenant::class, 'tenant_id'); }
-    public function scopeActive($query) { return $query->where('is_active', true); }
+
+    // Accessor to decrypt sensitive fields
+    public function getBankAccountAttribute($value)
+    {
+        return $value ? Crypt::decryptString($value) : null;
+    }
+
+    // Mutator to encrypt sensitive fields
+    public function setBankAccountAttribute($value)
+    {
+        $this->attributes['bank_account'] = $value ? Crypt::encryptString($value) : null;
+    }
 }
