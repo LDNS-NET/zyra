@@ -6,8 +6,6 @@ import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import { useTheme } from '@/composables/useTheme';
-
-// Icons (Lucide)
 import {
     LayoutDashboard,
     Users,
@@ -27,6 +25,7 @@ import {
     NetworkIcon,
     DoorClosedLockedIcon,
     Gift,
+    SendIcon,
 } from 'lucide-vue-next';
 
 const { theme, applyTheme } = useTheme();
@@ -47,21 +46,21 @@ watch(theme, (val) => {
 <template>
     <!-- Wrapper -->
     <div
-        class="min-h-auto flex w-full bg-gray-50 text-gray-900 transition-colors duration-300 dark:bg-gray-900 dark:text-white"
+        class="min-h-auto flex w-full bg-gray-50 text-black transition-colors duration-300 dark:bg-gray-900 dark:text-white"
     >
         <!-- Sidebar -->
         <aside
-            class="fixed inset-y-0 left-0 z-30 w-64 flex-shrink-0 transform bg-white shadow-lg transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0 dark:bg-gray-800"
+            class="fixed inset-y-0 left-0 z-30 w-64 flex-shrink-0 transform bg-gray-200 shadow-lg transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0 dark:bg-gray-800"
             :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
         >
-            <div
+            <!-- <div
                 class="flex items-center justify-between border-b border-gray-200 px-4 py-4 dark:border-gray-700"
             >
                 <Link
                     :href="route('dashboard')"
                     class="flex items-center space-x-2"
                 >
-                    <ApplicationLogo class="h-8 w-auto" />
+                   <ApplicationLogo class="h-8 w-auto" />
                     <span
                         class="text-lg font-semibold text-black dark:text-white"
                         >ZiSP</span
@@ -85,7 +84,7 @@ watch(theme, (val) => {
                         />
                     </svg>
                 </button>
-            </div>
+            </div>-->
 
             <!-- Sidebar Links -->
             <nav class="h-[calc(100vh-4rem)] space-y-1 overflow-y-auto p-4">
@@ -108,9 +107,7 @@ watch(theme, (val) => {
                         :active="route().current('activeusers.index')"
                         class="flex items-center p-2 dark:text-white"
                     >
-                        <Activity
-                            class="mr-2 h-4 w-4 text-indigo-500 dark:text-indigo-200"
-                        />
+                        <Activity class="mr-2 h-4 w-4 text-purple-500" />
                         Active Users
                     </NavLink>
                 </div>
@@ -121,7 +118,7 @@ watch(theme, (val) => {
                         :active="route().current('users.index')"
                         class="flex items-center p-2 dark:text-white"
                     >
-                        <Users class="mr-2 h-4 w-4 text-emerald-500" />
+                        <Users class="mr-2 h-4 w-4 text-purple-500" />
                         Users
                     </NavLink>
                 </div>
@@ -132,7 +129,7 @@ watch(theme, (val) => {
                         :active="route().current('leads.index')"
                         class="flex items-center p-2 dark:text-white"
                     >
-                        <Phone class="mr-2 h-4 w-4 text-emerald-500" />
+                        <Phone class="mr-2 h-4 w-4 text-purple-500" />
                         Leads
                     </NavLink>
                 </div>
@@ -143,7 +140,7 @@ watch(theme, (val) => {
                         :active="route().current('tickets.index')"
                         class="flex items-center p-2 dark:text-white"
                     >
-                        <HelpCircle class="mr-2 h-4 w-4 text-emerald-500" />
+                        <HelpCircle class="mr-2 h-4 w-4 text-purple-500" />
                         Tickets
                     </NavLink>
                 </div>
@@ -154,7 +151,7 @@ watch(theme, (val) => {
                         :active="route().current('packages.index')"
                         class="flex items-center p-2 dark:text-white"
                     >
-                        <MailCheck class="mr-2 h-4 w-4 text-red-500" />
+                        <MailCheck class="mr-2 h-4 w-4 text-purple-500" />
                         Packages
                     </NavLink>
                 </div>
@@ -165,7 +162,7 @@ watch(theme, (val) => {
                         :active="route().current('vouchers.index')"
                         class="flex items-center p-2 dark:text-white"
                     >
-                        <Gift class="mr-2 h-4 w-4 text-emerald-500" />
+                        <Gift class="mr-2 h-4 w-4 text-purple-500" />
                         Vouchers
                     </NavLink>
                 </div>
@@ -176,7 +173,7 @@ watch(theme, (val) => {
                         :active="route().current('payments.index')"
                         class="flex items-center p-2 dark:text-white"
                     >
-                        <Banknote class="mr-2 h-4 w-4 text-yellow-500" />
+                        <Banknote class="mr-2 h-4 w-4 text-purple-500" />
                         Payments
                     </NavLink>
                 </div>
@@ -188,7 +185,7 @@ watch(theme, (val) => {
                         class="flex items-center p-2 dark:text-white"
                     >
                         <DoorClosedLockedIcon
-                            class="mr-2 h-4 w-4 text-emerald-500"
+                            class="mr-2 h-4 w-4 text-purple-500"
                         />
                         Invoices
                     </NavLink>
@@ -222,7 +219,7 @@ watch(theme, (val) => {
                         :active="route().current('mikrotiks.index')"
                         class="flex items-center p-2 dark:text-white"
                     >
-                        <NetworkIcon class="mr-2 h-4 w-4 text-emerald-500" />
+                        <NetworkIcon class="mr-2 h-4 w-4 text-purple-500" />
                         Mikrotiks
                     </NavLink>
                 </div>
@@ -259,6 +256,19 @@ watch(theme, (val) => {
                                     class="mr-2 h-4 w-4 text-green-500"
                                 />
                                 Tenant portal
+                            </NavLink>
+                        </div>
+
+                        <div class="mb-2 px-2">
+                            <NavLink
+                                href="#"
+                                :active="route().current('Tportal.index')"
+                                class="flex items-center p-2 dark:text-white"
+                            >
+                                <NetworkIcon
+                                    class="mr-2 h-4 w-4 text-green-500"
+                                />
+                                Mikrotik Integration
                             </NavLink>
                         </div>
                     </div>
@@ -328,6 +338,14 @@ watch(theme, (val) => {
                             </DropdownLink>
 
                             <DropdownLink
+                                :href="route('profile.edit')"
+                                class="flex"
+                            >
+                                <FolderEdit class="mr-2 h-4 w-4" />
+                                Profile
+                            </DropdownLink>
+
+                            <DropdownLink
                                 :href="route('settings.general.edit')"
                                 :active="
                                     route().current('settings.general.edit')
@@ -339,11 +357,12 @@ watch(theme, (val) => {
                             </DropdownLink>
 
                             <DropdownLink
-                                :href="route('profile.edit')"
+                                href="#"
+                                :active="route().current('referal.index')"
                                 class="flex"
                             >
-                                <FolderEdit class="mr-2 h-4 w-4" />
-                                Profile
+                                <SendIcon class="mr-2 h-4 w-4" />
+                                Refer an isp
                             </DropdownLink>
 
                             <DropdownLink
@@ -366,7 +385,7 @@ watch(theme, (val) => {
                 class="border bg-cyan-100 transition-colors duration-300 dark:bg-cyan-900"
             >
                 <div
-                    class="mx-auto max-w-7xl px-2 py-2 text-gray-900 sm:px-4 lg:px-6 dark:text-white"
+                    class="mx-auto max-w-7xl px-2 py-2 text-black sm:px-4 lg:px-6 dark:text-white"
                 >
                     <slot name="header" />
                 </div>
