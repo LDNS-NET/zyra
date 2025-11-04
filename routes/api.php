@@ -38,9 +38,7 @@ Route::middleware([InitializeTenancyByDomain::class, PreventAccessFromCentralDom
 });
 
 
-Route::middleware([InitializeTenancyByDomain::class])
-    ->prefix('radius')
-    ->group(function () {
+Route::prefix('radius')->group(function () {
         Route::post('/auth', [TenantRadiusController::class, 'auth']);
         Route::post('/acct', [TenantRadiusController::class, 'acct']);
         Route::post('/disconnect', [TenantRadiusController::class, 'disconnect']);
