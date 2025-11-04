@@ -26,7 +26,6 @@ use App\Http\Controllers\Tenants\TenantPaymentGatewayController;
 use App\Http\Controllers\Tenants\TenantPayoutSettingsController;
 use App\Http\Controllers\Tenants\TenantSettingsController;
 use App\Http\Controllers\Tenants\TenantSMSController;
-use App\Http\Controllers\Tenants\TenantSmsGatewayController;
 use App\Http\Controllers\Tenants\TenantSMSTemplateController;
 use App\Http\Controllers\Tenants\TenantTicketController;
 use App\Http\Controllers\Tenants\TenantUserController;
