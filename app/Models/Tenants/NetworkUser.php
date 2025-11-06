@@ -45,7 +45,7 @@ class NetworkUser extends Model
     {
         return $this->belongsTo(Package::class, 'package_id');
     }
-    
+
     protected static function booted()
     {
         /** Apply created_by scope */
@@ -120,7 +120,7 @@ class NetworkUser extends Model
             // Update package-related entries
             $package = $user->package;
             if ($package) {
-                $rateValue = "{$package->upload_speed}k/{$package->download_speed}k";
+                $rateValue = "{$package->upload_speed}M/{$package->download_speed}M";
                 Radreply::updateOrCreate(
                     ['username' => $user->username, 'attribute' => 'Mikrotik-Rate-Limit'],
                     ['op' => ':=', 'value' => $rateValue]
