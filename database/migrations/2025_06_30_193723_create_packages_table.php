@@ -14,8 +14,8 @@ return new class extends Migration {
             $table->unsignedInteger('device_limit')->nullable();
             $table->integer('duration_value');
             $table->string('duration_unit');
-            $table->integer('upload_speed')->comment('mbps');
-            $table->integer('download_speed')->comment('mbps');
+            $table->string('upload_speed')->comment('mbps');
+            $table->string('download_speed')->comment('mbps');
             $table->integer('burst_limit')->nullable()->comment('optional burst speed in kbps');
             $table->unsignedBigInteger('created_by')->nullable();
             $table->timestamps();
