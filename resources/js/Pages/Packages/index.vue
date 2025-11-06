@@ -371,7 +371,7 @@ function remove(id) {
                             <TextInput
                                 id="upload_speed"
                                 v-model="form.upload_speed"
-                                type="string"
+                                type="number"
                                 class="mt-1 w-full"
                             />
                             <InputError
@@ -387,7 +387,7 @@ function remove(id) {
                             <TextInput
                                 id="download_speed"
                                 v-model="form.download_speed"
-                                type="string"
+                                type="number"
                                 class="mt-1 w-full"
                             />
                             <InputError
