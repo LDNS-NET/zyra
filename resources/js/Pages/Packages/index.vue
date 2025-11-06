@@ -52,8 +52,9 @@ function openEdit(pkg) {
     form.duration_value = pkg.duration_value;
     form.duration_unit = pkg.duration_unit || 'days';
     form.type = pkg.type;
-    form.upload_speed = pkg.upload_speed;
-    form.download_speed = pkg.download_speed;
+    // Remove 'M' suffix for input fields
+    form.upload_speed = pkg.upload_speed?.toString().replace(/m$/i, '') || '';
+    form.download_speed = pkg.download_speed?.toString().replace(/m$/i, '') || '';
     form.burst_limit = pkg.burst_limit;
     form.device_limit = pkg.device_limit;
     showModal.value = true;
@@ -94,6 +95,20 @@ function submit() {
         ...form.data(),
     };
 
+    // Ensure speeds are stored with "M" suffix
+    if (
+        payload.upload_speed &&
+        !payload.upload_speed.toString().toLowerCase().endsWith('m')
+    ) {
+        payload.upload_speed = `${payload.upload_speed}M`;
+    }
+    if (
+        payload.download_speed &&
+        !payload.download_speed.toString().toLowerCase().endsWith('m')
+    ) {
+        payload.download_speed = `${payload.download_speed}M`;
+    }
+
     if (editing.value) {
         form.put(route('packages.update', editing.value), {
             data: payload,
@@ -118,6 +133,7 @@ function submit() {
         });
     }
 }
+
 
 function remove(id) {
     if (confirm('Are you sure you want to delete this package?')) {
