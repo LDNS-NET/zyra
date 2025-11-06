@@ -11,6 +11,8 @@ class Radusergroup extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'username', 'groupname', 'priority'
+        'username',
+        'groupname',
+        'priority'
     ];
 }
