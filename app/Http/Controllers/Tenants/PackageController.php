@@ -92,8 +92,8 @@ class PackageController extends Controller
             'price' => ['required', 'numeric', 'min:0'],
             'duration_value' => ['required', 'integer', 'min:1'],
             'duration_unit' => ['required', 'in:minutes,hours,days,weeks,months'],
-            'upload_speed' => ['required', 'string', 'min:1'],
-            'download_speed' => ['required', 'string', 'min:1'],
+            'upload_speed' => ['required', 'numeric', 'min:1'],
+            'download_speed' => ['required', 'numeric', 'min:1'],
             'burst_limit' => ['nullable', 'numeric', 'min:0'],
             'device_limit' => ['nullable', 'integer', 'min:1'],
         ];
