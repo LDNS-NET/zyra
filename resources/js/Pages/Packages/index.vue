@@ -52,9 +52,8 @@ function openEdit(pkg) {
     form.duration_value = pkg.duration_value;
     form.duration_unit = pkg.duration_unit || 'days';
     form.type = pkg.type;
-    // Remove 'M' suffix for input fields
-    form.upload_speed = pkg.upload_speed?.toString().replace(/m$/i, '') || '';
-    form.download_speed = pkg.download_speed?.toString().replace(/m$/i, '') || '';
+    form.upload_speed = pkg.upload_speed;
+    form.download_speed = pkg.download_speed;
     form.burst_limit = pkg.burst_limit;
     form.device_limit = pkg.device_limit;
     showModal.value = true;
@@ -95,20 +94,6 @@ function submit() {
         ...form.data(),
     };
 
-    // Ensure speeds are stored with "M" suffix
-    if (
-        payload.upload_speed &&
-        !payload.upload_speed.toString().toLowerCase().endsWith('m')
-    ) {
-        payload.upload_speed = `${payload.upload_speed}M`;
-    }
-    if (
-        payload.download_speed &&
-        !payload.download_speed.toString().toLowerCase().endsWith('m')
-    ) {
-        payload.download_speed = `${payload.download_speed}M`;
-    }
-
     if (editing.value) {
         form.put(route('packages.update', editing.value), {
             data: payload,
@@ -133,7 +118,6 @@ function submit() {
         });
     }
 }
-
 
 function remove(id) {
     if (confirm('Are you sure you want to delete this package?')) {
@@ -335,7 +319,7 @@ function remove(id) {
                                 />
                                 <select
                                     v-model="form.duration_unit"
-                                    class="mt-1 w-1/2 rounded-md border-gray-300 dark:bg-black"
+                                    class="mt-1 w-1/2 rounded-md border-gray-300"
                                 >
                                     <option value="hours">Hours</option>
                                     <option value="days">Days</option>
@@ -355,7 +339,7 @@ function remove(id) {
                         <select
                             v-model="form.type"
                             id="type"
-                            class="mt-1 w-full rounded-md border-gray-300 dark:bg-black"
+                            class="mt-1 w-full rounded-md border-gray-300"
                         >
                             <option value="hotspot">Hotspot</option>
                             <option value="pppoe">PPPoE</option>
@@ -382,7 +366,7 @@ function remove(id) {
                         <div>
                             <InputLabel
                                 for="upload_speed"
-                                value="Upload Speed (eg 5M)"
+                                value="Upload Speed (M)"
                             />
                             <TextInput
                                 id="upload_speed"
@@ -398,12 +382,12 @@ function remove(id) {
                         <div>
                             <InputLabel
                                 for="download_speed"
-                                value="Download Speed (eg 5M)"
+                                value="Download Speed (M)"
                             />
                             <TextInput
                                 id="download_speed"
                                 v-model="form.download_speed"
-                                type=""
+                                type="string"
                                 class="mt-1 w-full"
                             />
                             <InputError
