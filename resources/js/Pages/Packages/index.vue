@@ -335,7 +335,7 @@ function remove(id) {
                                 />
                                 <select
                                     v-model="form.duration_unit"
-                                    class="mt-1 w-1/2 rounded-md border-gray-300"
+                                    class="mt-1 w-1/2 rounded-md border-gray-300 dark:bg-black"
                                 >
                                     <option value="hours">Hours</option>
                                     <option value="days">Days</option>
@@ -355,7 +355,7 @@ function remove(id) {
                         <select
                             v-model="form.type"
                             id="type"
-                            class="mt-1 w-full rounded-md border-gray-300"
+                            class="mt-1 w-full rounded-md border-gray-300 dark:bg-black"
                         >
                             <option value="hotspot">Hotspot</option>
                             <option value="pppoe">PPPoE</option>
@@ -382,12 +382,12 @@ function remove(id) {
                         <div>
                             <InputLabel
                                 for="upload_speed"
-                                value="Upload Speed (Mbps)"
+                                value="Upload Speed (eg 5M)"
                             />
                             <TextInput
                                 id="upload_speed"
                                 v-model="form.upload_speed"
-                                type="number"
+                                type="string"
                                 class="mt-1 w-full"
                             />
                             <InputError
@@ -398,12 +398,12 @@ function remove(id) {
                         <div>
                             <InputLabel
                                 for="download_speed"
-                                value="Download Speed (Mbps)"
+                                value="Download Speed (eg 5M)"
                             />
                             <TextInput
                                 id="download_speed"
                                 v-model="form.download_speed"
-                                type="number"
+                                type=""
                                 class="mt-1 w-full"
                             />
                             <InputError
