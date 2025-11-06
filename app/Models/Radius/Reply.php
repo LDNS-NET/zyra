@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Radius;
 
 use Illuminate\Database\Eloquent\Model;
 
-class RadiusUser extends Model
+class Reply extends Model
 {
     protected $connection = 'mysql_radius';
-    protected $table = 'radcheck';
+    protected $table = 'radreply';
     public $timestamps = false;
 
     protected $fillable = [

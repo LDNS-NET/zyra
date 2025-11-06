@@ -70,12 +70,10 @@ return [
             'database' => env('RADIUS_DB_DATABASE', 'radius'),
             'username' => env('RADIUS_DB_USERNAME', 'zisp_user'),
             'password' => env('RADIUS_DB_PASSWORD', ''),
-            'unix_socket' => env('DB_SOCKET', ''),
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',
             'strict' => false,
-            'engine' => null,
         ],
 
         'mariadb' => [

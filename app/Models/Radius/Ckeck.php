@@ -1,20 +1,19 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Radius;
 
 use Illuminate\Database\Eloquent\Model;
 
-class RadiusPostAuth extends Model
+class Check extends Model
 {
     protected $connection = 'mysql_radius';
-    protected $table = 'radpostauth';
+    protected $table = 'radcheck';
     public $timestamps = false;
 
     protected $fillable = [
         'username',
-        'pass',
-        'reply',
-        'authdate',
+        'attribute',
+        'op',
+        'value',
     ];
 }
-
