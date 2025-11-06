@@ -3,7 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Tenants\CaptivePortalController;
-use App\Http\Controllers\Tenants\TenantRadiusController;
+use App\Http\Controllers\Api\RadiusController;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 
@@ -31,10 +31,8 @@ Route::middleware([InitializeTenancyByDomain::class, PreventAccessFromCentralDom
     // Simple polling endpoint for frontend to check payment status by id or invoice
     Route::get('/hotspot/payment-status/{identifier}', [CaptivePortalController::class, 'paymentStatus']);
 
-    // RADIUS endpoints (tenant-scoped)
-    Route::prefix('radius')->group(function () {
-        Route::post('/auth', [TenantRadiusController::class, 'auth']);
-        Route::post('/acct', [TenantRadiusController::class, 'acct']);
-        Route::post('/disconnect', [TenantRadiusController::class, 'disconnect']);
-    });
 });
+
+
+Route::post('/radius/auth', [RadiusController::class, 'auth']);
+
