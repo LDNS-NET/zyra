@@ -6,9 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Radius\Check;
-use App\Models\Radius\Reply;
-use App\Models\Package;
+use App\Models\Radius\Radcheck;
+use App\Models\Radius\Radreply;
+use App\Models\Radius\Radusergroup;
 
 class NetworkUser extends Model
 {
@@ -38,26 +38,33 @@ class NetworkUser extends Model
         'online' => 'boolean',
     ];
 
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Package::class, 'package_id');
+    }
+
+    public function tenantMikrotiks()
+    {
+        return app('currentTenant')->mikrotiks();
+    }
+
     protected static function booted()
     {
-        // Tenant scope (created_by)
         static::addGlobalScope('created_by', function ($query) {
             if (Auth::check()) {
                 $query->where('created_by', Auth::id());
             }
         });
 
-        // Auto-fill fields
         static::creating(function ($model) {
             if (Auth::check() && empty($model->created_by)) {
                 $model->created_by = Auth::id();
             }
 
-            // Auto-generate account_number if not set
+            // Auto-generate account_number
             if (empty($model->account_number)) {
                 $tenant = app(\App\Models\Tenant::class);
                 $prefix = '';
-
                 if ($tenant && !empty($tenant->business_name)) {
                     $prefix = strtoupper(substr(preg_replace('/\s+/', '', $tenant->business_name), 0, 2));
                 } else {
@@ -72,64 +79,54 @@ class NetworkUser extends Model
             }
         });
 
-        // 🔁 Sync with RADIUS on create/update/delete
-        static::created(fn($user) => self::syncToRadius($user));
-        static::updated(fn($user) => self::syncToRadius($user));
-        static::deleted(fn($user) => self::removeFromRadius($user));
-    }
+        /**
+         * 🔥 Sync with RADIUS database automatically
+         */
+        static::created(function ($user) {
+            // Create user credentials
+            Radcheck::create([
+                'username'  => $user->username,
+                'attribute' => 'Cleartext-Password',
+                'op'        => ':=',
+                'value'     => $user->password,
+            ]);
 
-    /**
-     * RADIUS Synchronization
-     */
-    protected static function syncToRadius($user)
-    {
-        try {
-            // ✅ Sync user password
-            Check::updateOrCreate(
-                ['username' => $user->username, 'attribute' => 'Cleartext-Password'],
-                ['op' => ':=', 'value' => $user->password]
-            );
+            // Assign package speeds (if package is set)
+            if ($user->package && $user->package->speed) {
+                Radreply::create([
+                    'username'  => $user->username,
+                    'attribute' => 'Mikrotik-Rate-Limit',
+                    'op'        => ':=',
+                    'value'     => $user->package->speed,
+                ]);
+            }
 
-            // ✅ Add rate limit (if package exists)
-            if ($user->package && $user->package->rate_limit) {
-                Reply::updateOrCreate(
+            // Optionally assign to default group
+            Radusergroup::create([
+                'username'  => $user->username,
+                'groupname' => 'default',
+                'priority'  => 1,
+            ]);
+        });
+
+        static::updated(function ($user) {
+            // Update password
+            Radcheck::where('username', $user->username)
+                ->update(['value' => $user->password]);
+
+            // Update package speed
+            if ($user->package && $user->package->speed) {
+                Radreply::updateOrCreate(
                     ['username' => $user->username, 'attribute' => 'Mikrotik-Rate-Limit'],
-                    ['op' => ':=', 'value' => $user->package->rate_limit]
+                    ['op' => ':=', 'value' => $user->package->speed]
                 );
             }
+        });
 
-            // ✅ Add expiration date if available
-            if ($user->expires_at) {
-                Reply::updateOrCreate(
-                    ['username' => $user->username, 'attribute' => 'Mikrotik-Expiration'],
-                    ['op' => ':=', 'value' => $user->expires_at->format('d M Y H:i:s')]
-                );
-            }
-        } catch (\Throwable $e) {
-            \Log::error("RADIUS sync failed for user {$user->username}: " . $e->getMessage());
-        }
-    }
-
-    protected static function removeFromRadius($user)
-    {
-        try {
-            Check::where('username', $user->username)->delete();
-            Reply::where('username', $user->username)->delete();
-        } catch (\Throwable $e) {
-            \Log::error("Failed to remove RADIUS user {$user->username}: " . $e->getMessage());
-        }
-    }
-
-    public function package()
-    {
-        return $this->belongsTo(Package::class, 'package_id');
-    }
-
-    /**
-     * (Optional) Fetch tenant MikroTik routers
-     */
-    public function tenantMikrotiks()
-    {
-        return app('currentTenant')->mikrotiks();
+        static::deleted(function ($user) {
+            Radcheck::where('username', $user->username)->delete();
+            Radreply::where('username', $user->username)->delete();
+            Radusergroup::where('username', $user->username)->delete();
+        });
     }
 }

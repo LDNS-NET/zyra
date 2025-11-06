@@ -4,7 +4,7 @@ namespace App\Models\Radius;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Check extends Model
+class Radcheck extends Model
 {
     protected $connection = 'mysql_radius';
     protected $table = 'radcheck';
