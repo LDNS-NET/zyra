@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { Inertia } from '@inertiajs/inertia';
 import { route } from 'ziggy-js';
@@ -11,7 +11,6 @@ import TextArea from '@/Components/TextArea.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import DangerButton from '@/Components/DangerButton.vue';
 import InputError from '@/Components/InputError.vue';
-import Dropdown from '@/Components/Dropdown.vue';
 import {
     Plus,
     Edit,
@@ -19,7 +18,6 @@ import {
     Trash2,
     Wifi,
     Download,
-    ExternalLink,
     Activity,
     MoreHorizontal,
 } from 'lucide-vue-next';
@@ -41,6 +39,18 @@ const actionsOpen = ref({});
 
 function toggleActions(id) {
     actionsOpen.value[id] = !actionsOpen.value[id];
+}
+
+onMounted(() => {
+    window.addEventListener('click', handleClickOutside);
+});
+onUnmounted(() => {
+    window.removeEventListener('click', handleClickOutside);
+});
+function handleClickOutside(e) {
+    if (!e.target.closest('.router-actions-toggle')) {
+        closeAllActions();
+    }
 }
 
 function closeAllActions() {

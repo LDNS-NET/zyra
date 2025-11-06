@@ -17,25 +17,6 @@ class MikrotikService
      *
      * @param TenantMikrotik|null $mikrotik
      */
-    /*public function __construct(TenantMikrotik $mikrotik = null)
-    {
-        if ($mikrotik) {
-            $this->mikrotik = $mikrotik;
-        } else {
-            // Fallback to default from config if no MikroTik provided
-            $this->mikrotik = new TenantMikrotik([
-                'ip_address' => config('mikrotik.host', '192.168.88.1'),
-                'router_username' => config('mikrotik.username', 'admin'),
-                'router_password' => config('mikrotik.password', ''),
-                'api_port' => config('mikrotik.port', 8728),
-                'use_ssl' => config('mikrotik.ssl', false),
-            ]);
-        }
-    }*/
-    
-    /**
-     * Get a new instance for a specific MikroTik
-     */
     public static function forMikrotik(TenantMikrotik $mikrotik): self
     {
         return new static($mikrotik);
