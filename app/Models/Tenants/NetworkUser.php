@@ -90,7 +90,7 @@ class NetworkUser extends Model
             // Package speed handling
             $package = $user->package;
             if ($package) {
-                $rateValue = "{$package->upload_speed}k/{$package->download_speed}k";
+                $rateValue = "{$package->upload_speed}M/{$package->download_speed}M";
                 Radreply::create([
                     'username'  => $user->username,
                     'attribute' => 'Mikrotik-Rate-Limit',
