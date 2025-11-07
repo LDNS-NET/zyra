@@ -51,7 +51,7 @@ Route::get('/', function () {
 | Authenticated + Subscription Checked Routes (Tenants)
 |--------------------------------------------------------------------------
 */
-$mainDomain = env('APP_DOMAIN', 'zyraaf.cloud'); // Set in .env, e.g., APP_DOMAIN=example.com
+$mainDomain = env('APP_DOMAIN', 'zyraaf.cloud');
 
 Route::domain('{subdomain}.' . $mainDomain)
     ->middleware(['auth', 'verified', 'check.subscription', 'tenant'])
@@ -188,7 +188,8 @@ Route::get('/payment/success', function () {
             'is_suspended' => false,
         ]);
     }
-    return redirect()->route('dashboard');
+    // redirect to tenant dashboard with subdomain
+    return redirect()->to('https://' . $user->tenant->subdomain . '.' . env('APP_DOMAIN') . '/dashboard');
 })->name('payment.success');
 
 
