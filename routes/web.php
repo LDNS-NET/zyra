@@ -53,8 +53,7 @@ Route::get('/', function () {
 */
 $mainDomain = env('APP_DOMAIN', 'zyraaf.cloud');
 
-Route::domain('{subdomain}.' . $mainDomain)
-    ->middleware(['auth', 'verified', 'check.subscription', 'tenant'])
+Route::middleware(['auth', 'verified', 'check.subscription'])
     ->group(function () {
 
 
@@ -188,9 +187,7 @@ Route::get('/payment/success', function () {
             'is_suspended' => false,
         ]);
     }
-    // redirect to tenant dashboard with subdomain
-    return redirect()->to('https://' . $user->tenant->subdomain . '.' . env('APP_DOMAIN') . '/dashboard');
-})->name('payment.success');
+    return redirect()->route('dashboard');})->name('payment.success');
 
 
 

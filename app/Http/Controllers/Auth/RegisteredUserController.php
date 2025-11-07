@@ -81,8 +81,8 @@ class RegisteredUserController extends Controller
         Auth::login($user);
 
         // Redirect to tenant dashboard
-        //return redirect()->route('dashboard', [], false);
-        return redirect()->route('dashboard', ['subdomain' => $user->tenant->subdomain]);
+        return redirect()->route('dashboard', [], false);
+        //return redirect()->route('dashboard', ['subdomain' => $user->tenant->subdomain]);
 
 
     }
