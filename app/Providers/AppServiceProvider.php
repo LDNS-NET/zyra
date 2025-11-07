@@ -7,7 +7,6 @@ use Illuminate\Support\ServiceProvider;
 use App\Http\Middleware\CheckSubscription;
 use Illuminate\Support\Facades\Route;
 use App\Http\Middleware\SuperAdminMiddleware;
-use App\Http\Middleware\TenantMiddleware;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use App\Models\Tenants\TenantLeads;
 use App\Models\Tenants\NetworkUser;
@@ -33,8 +32,7 @@ class AppServiceProvider extends ServiceProvider
        Route::aliasMiddleware('check.subscription', CheckSubscription::class);
        // Register the SuperAdmin middleware globally
        Route::aliasMiddleware('superadmin', SuperAdminMiddleware::class);
-       // 
-         Route::aliasMiddleware('tenant', TenantMiddleware::class);
+       // Register the Tenant middleware globally
 
        Relation::enforceMorphMap([
         'lead' => TenantLeads::class,

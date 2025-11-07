@@ -55,9 +55,6 @@ class RegisteredUserController extends Controller
                 'is_suspended' => false,
             ]);
 
-            // Generate a unique subdomain
-            $subdomain = $this->generateSubdomain($user->username);
-
             // Create tenant
             $tenantId = (string) Str::uuid();
             DB::table('tenants')->insert([
@@ -82,26 +79,7 @@ class RegisteredUserController extends Controller
 
         // Redirect to tenant dashboard
         return redirect()->route('dashboard', [], false);
-        //return redirect()->route('dashboard', ['subdomain' => $user->tenant->subdomain]);
 
 
-    }
-
-    /**
-     * Generate a unique, URL-safe subdomain for the tenant.
-     */
-    private function generateSubdomain(string $username): string
-    {
-        $subdomain = Str::slug($username, '-'); // e.g. "Ldns-net" => "ldns-net"
-
-        $counter = 1;
-        $base = $subdomain;
-
-        while (DB::table('tenants')->where('subdomain', $subdomain)->exists()) {
-            $subdomain = $base . '-' . $counter;
-            $counter++;
-        }
-
-        return strtolower($subdomain);
     }
 }
