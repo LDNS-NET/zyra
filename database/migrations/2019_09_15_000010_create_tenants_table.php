@@ -10,17 +10,16 @@ class CreateTenantsTable extends Migration
 {
     /**
      * Run the migrations.
-     *
-     * @return void
      */
     public function up(): void
     {
         Schema::create('tenants', function (Blueprint $table) {
             $table->string('id')->primary(); // Tenant ID as string
-            $table->string('name'); // Tenant name / Business name
+            $table->string('name');          // Tenant name / Business name
             $table->string('email')->unique();
             $table->string('phone')->nullable();
             $table->string('username')->unique();
+            $table->string('subdomain')->unique(); // Added subdomain column
             $table->timestamps();
             $table->json('data')->nullable();
         });
@@ -28,8 +27,6 @@ class CreateTenantsTable extends Migration
 
     /**
      * Reverse the migrations.
-     *
-     * @return void
      */
     public function down(): void
     {

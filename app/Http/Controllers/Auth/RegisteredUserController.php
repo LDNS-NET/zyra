@@ -34,36 +34,39 @@ class RegisteredUserController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:'.User::class,
-            'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
-            'phone' => 'required|string|max:255|unique:'.User::class,
-            'username' => 'required|string|max:255|unique:'.User::class,
+            'name' => 'required|string|max:255|unique:' . User::class,
+            'email' => 'required|string|email|max:255|unique:' . User::class,
+            'phone' => 'required|string|max:255|unique:' . User::class,
+            'username' => 'required|string|max:255|unique:' . User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
         $user = null;
 
         DB::transaction(function () use ($request, &$user) {
+            // Create the user
             $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
                 'phone' => $request->phone,
                 'username' => $request->username,
                 'password' => Hash::make($request->password),
-                // Set subscription to start today (registration day)
                 'subscription_expires_at' => now()->addDays(14),
                 'is_suspended' => false,
             ]);
 
-            // Create tenant using same basic details and associate with user
+            // Generate a unique subdomain
+            $subdomain = $this->generateSubdomain($user->username);
+
+            // Create tenant
             $tenantId = (string) Str::uuid();
-            // Insert directly into tenants table to ensure required columns are set
             DB::table('tenants')->insert([
                 'id' => $tenantId,
                 'name' => $user->name,
                 'email' => $user->email,
                 'phone' => $user->phone,
                 'username' => $user->username,
+                'subdomain' => $subdomain,
                 'data' => json_encode(['name' => $user->name]),
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -77,7 +80,28 @@ class RegisteredUserController extends Controller
         event(new Registered($user));
         Auth::login($user);
 
-        return redirect(route('dashboard', absolute: false));
+        // Redirect to tenant dashboard
+        //return redirect()->route('dashboard', [], false);
+        return redirect()->route('dashboard', ['subdomain' => $user->tenant->subdomain]);
+
+
     }
 
+    /**
+     * Generate a unique, URL-safe subdomain for the tenant.
+     */
+    private function generateSubdomain(string $username): string
+    {
+        $subdomain = Str::slug($username, '-'); // e.g. "Ldns-net" => "ldns-net"
+
+        $counter = 1;
+        $base = $subdomain;
+
+        while (DB::table('tenants')->where('subdomain', $subdomain)->exists()) {
+            $subdomain = $base . '-' . $counter;
+            $counter++;
+        }
+
+        return strtolower($subdomain);
+    }
 }

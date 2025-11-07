@@ -51,8 +51,11 @@ Route::get('/', function () {
 | Authenticated + Subscription Checked Routes (Tenants)
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth', 'verified', 'check.subscription'])->group(function () 
-    {
+$mainDomain = env('APP_DOMAIN', 'zyraaf.cloud'); // Set in .env, e.g., APP_DOMAIN=example.com
+
+Route::domain('{subdomain}.' . $mainDomain)
+    ->middleware(['auth', 'verified', 'check.subscription', 'tenant'])
+    ->group(function () {
 
 
         // Dashboard
