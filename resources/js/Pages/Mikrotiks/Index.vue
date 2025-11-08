@@ -146,29 +146,31 @@ function deleteRouter(mikrotik) {
     }
 }
 
-function pingRouter(router) {
+async function pingRouter(router) {
     pinging.value[router.id] = true;
     formError.value = '';
-    fetch(route('mikrotiks.ping', router.id))
-        .then(async (res) => {
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.message || 'Unknown error');
-            }
-            return res.json();
-        })
-        .then((data) => {
-            alert(data.message);
-            router.status = data.status;
-            router.last_seen_at = data.last_seen_at;
-        })
-        .catch((err) => {
-            formError.value = 'Error pinging router: ' + err.message;
-        })
-        .finally(() => {
-            pinging.value[router.id] = false;
-        });
+
+    try {
+        const response = await fetch(route('mikrotiks.ping', router.id));
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to reach router.');
+        }
+
+        router.status = data.status;
+        router.last_seen_at = data.last_seen_at;
+
+        // Use a nicer non-blocking feedback
+        window.toast?.success(data.message) || console.log(data.message);
+    } catch (err) {
+        formError.value = `Error pinging router: ${err.message}`;
+        window.toast?.error(formError.value) || console.error(formError.value);
+    } finally {
+        pinging.value[router.id] = false;
+    }
 }
+
 
 function testRouterConnection(router) {
     testing.value[router.id] = true;
