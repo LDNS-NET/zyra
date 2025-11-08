@@ -10,7 +10,6 @@
 # RADIUS server: 207.154.204.144
 # API user: zisp
 # API password: {{router_password}}
-# Sync token: {{sync_token}}
 
 # Set router identity
 /system identity set name="Zyraaf-Router-{{router_id}}"
@@ -51,10 +50,10 @@
 # ---------------------------
 
 # Create PPPoE pool
-/ip pool add name=pppoe-pool-{{router_id}} ranges=10.{{router_id}}.2-10.{{router_id}}.254
+/ip pool add name=pppoe-pool-{{router_id}} ranges=10.10.{{router_id}}.2-10.10.{{router_id}}.254
 
 # PPPoE profile
-/ppp profile add name=pppoe-profile-{{router_id}} local-address=10.{{router_id}}.1 remote-address=pppoe-pool-{{router_id}}
+/ppp profile add name=pppoe-profile-{{router_id}} local-address=10.10.{{router_id}}.1 remote-address=pppoe-pool-{{router_id}}
 
 /interface pppoe-server server add name=pppoe{{router_id}} interface=ether3 service-name=PPPoE-Server profile=pppoe-profile-{{router_id}}
 
@@ -94,7 +93,7 @@
 # Mangle Rules for Traffic Marking
 # ---------------------------
 /ip firewall mangle add chain=prerouting action=mark-connection new-connection-mark=hotspot_conn passthrough=yes src-address=192.168.{{router_id}}.0/24 comment="Mark Hotspot connections"
-/ip firewall mangle add chain=prerouting action=mark-connection new-connection-mark=pppoe_conn passthrough=yes src-address=10.{{router_id}}.0/24 comment="Mark PPPoE connections"
+/ip firewall mangle add chain=prerouting action=mark-connection new-connection-mark=pppoe_conn passthrough=yes src-address=10.10.{{router_id}}.0/24 comment="Mark PPPoE connections"
 
 # ---------------------------
 # OVPN Server Setup
@@ -105,16 +104,10 @@
 # ---------------------------
 # System Scripts
 # ---------------------------
-/system script add name=disconnect-user source={
-:local userName $1
-:local interface $2
-/ppp active remove [find name=$userName]
-/ip hotspot active remove [find user=$userName]
-}
+/system script add name=disconnect-user source=":local userName \$1\n:local interface \$2\n/ppp active remove [find name=\$userName]\n/ip hotspot active remove [find user=\$userName]"
 
 # Health check
-/system script add name=health-check source={
-:put "Running system health check..."
-}
+/system script add name=health-check source=":put \"Running system health check...\""
+
 
 /system scheduler add name=health-check interval=5m on-event=health-check
