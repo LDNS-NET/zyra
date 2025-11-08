@@ -99,7 +99,7 @@
 # OVPN Server Setup
 # ---------------------------
 /interface ovpn-server server set enabled=yes require-client-certificate=yes default-profile=default
-/radius add service=ovpn address=207.154.204.144 secret={{radius_secret}}
+/radius add service=ovpn address=207.154.204.144 secret=testing123
 
 # ---------------------------
 # System Scripts
