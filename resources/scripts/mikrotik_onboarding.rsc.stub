@@ -2,15 +2,6 @@
 # Zyraaf Cloud MikroTik Setup - Dynamic
 # ---------------------------
 
-# Inputs provided by Laravel:
-# Router ID: {{router_id}}
-# Hotspot base: 192.168.{{router_id}}.0/24
-# PPPoE base: 10.10.{{router_id}}.0/24
-# DHCP base: 172.16.{{router_id}}.0/24
-# RADIUS server: 207.154.204.144
-# API user: zisp
-# API password: {{router_password}}
-
 # Set router identity
 /system identity set name="Zyraaf-Router-{{router_id}}"
 
@@ -21,7 +12,7 @@
 /ip service enable winbox
 
 # Create system API user
-/user add name=zisp password={{router_password}} group=full comment="Laravel API user"
+/user add name=zisp password="{{router_password}}" group=full comment="Laravel API user"
 
 # Restrict services to trusted IP (Laravel server)
 /ip service set api address=207.154.204.144/32
@@ -42,7 +33,7 @@
 /ip hotspot add name=hs{{router_id}} interface=ether2 address-pool=hs-pool-{{router_id}} profile=hs-profile-{{router_id}}
 
 # Integrate RADIUS for Hotspot
-/radius add service=hotspot address=207.154.204.144 secret={{radius_secret}}
+/radius add service=hotspot address=207.154.204.144 secret="{{radius_secret}}"
 /ip hotspot profile set hs-profile-{{router_id}} radius-accounting=yes radius-server=207.154.204.144
 
 # ---------------------------
@@ -58,7 +49,7 @@
 /interface pppoe-server server add name=pppoe{{router_id}} interface=ether3 service-name=PPPoE-Server profile=pppoe-profile-{{router_id}}
 
 /ppp aaa set use-radius=yes
-/radius add service=ppp address=207.154.204.144 secret={{radius_secret}}
+/radius add service=ppp address=207.154.204.144 secret="{{radius_secret}}"
 
 # ---------------------------
 # DHCP Server Setup
@@ -99,15 +90,20 @@
 # OVPN Server Setup
 # ---------------------------
 /interface ovpn-server server set enabled=yes require-client-certificate=yes default-profile=default
-/radius add service=ovpn address=207.154.204.144 secret=testing123
+/radius add service=ovpn address=207.154.204.144 secret="{{radius_secret}}"
 
 # ---------------------------
 # System Scripts
 # ---------------------------
-/system script add name=disconnect-user source=":local userName \$1\n:local interface \$2\n/ppp active remove [find name=\$userName]\n/ip hotspot active remove [find user=\$userName]"
+/system script add name=disconnect-user source={
+    :local userName $1
+    :local interface $2
+    /ppp active remove [find name=$userName]
+    /ip hotspot active remove [find user=$userName]
+}
 
-# Health check
-/system script add name=health-check source=":put \"Running system health check...\""
-
+/system script add name=health-check source={
+    :put "Running system health check..."
+}
 
 /system scheduler add name=health-check interval=5m on-event=health-check
