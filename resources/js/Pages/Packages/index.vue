@@ -155,20 +155,21 @@ function remove(id) {
         </template>
 
         <div
-            v-if="selectedPackages.length"
-            class="mb-4 flex items-center justify-between rounded border border-yellow-200 bg-yellow-50 p-3"
-        >
-            <div class="flex gap-2">
-                <DangerButton @click="bulkDelete"
-                    >Delete ({{ selectedPackages.length }})</DangerButton
-                >
-            </div>
-        </div>
-
-        <div
             class="rounded-xl border border-blue-400 bg-gray-200 px-4 py-6 sm:px-6 lg:px-8 dark:border-white dark:bg-black"
         >
             <div class="overflow-x-auto rounded-xl shadow">
+                <div
+                    v-if="selectedPackages.length"
+                    class="mb-4 flex items-center rounded p-3"
+                >
+                    <div class="flex gap-2">
+                        <DangerButton @click="bulkDelete"
+                            >Delete ({{
+                                selectedPackages.length
+                            }})</DangerButton
+                        >
+                    </div>
+                </div>
                 <table
                     class="min-w-full divide-y-2 divide-black dark:divide-blue-200"
                 >
@@ -213,7 +214,7 @@ function remove(id) {
                         <tr
                             v-for="pkg in packages"
                             :key="pkg.id"
-                            class="transition hover:bg-gray-50"
+                            class="dark transition hover:bg-gray-50 dark:hover:bg-gray-800"
                         >
                             <td class="px-6 py-3">
                                 <input
@@ -319,7 +320,7 @@ function remove(id) {
                                 />
                                 <select
                                     v-model="form.duration_unit"
-                                    class="mt-1 w-1/2 rounded-md border-gray-300"
+                                    class="mt-1 w-1/2 rounded-md border-gray-300 dark:bg-black"
                                 >
                                     <option value="hours">Hours</option>
                                     <option value="days">Days</option>
@@ -339,7 +340,7 @@ function remove(id) {
                         <select
                             v-model="form.type"
                             id="type"
-                            class="mt-1 w-full rounded-md border-gray-300"
+                            class="mt-1 w-full rounded-md border-gray-300 dark:bg-black"
                         >
                             <option value="hotspot">Hotspot</option>
                             <option value="pppoe">PPPoE</option>
@@ -366,7 +367,7 @@ function remove(id) {
                         <div>
                             <InputLabel
                                 for="upload_speed"
-                                value="Upload Speed (M)"
+                                value="Upload Speed (Mbps)"
                             />
                             <TextInput
                                 id="upload_speed"
@@ -382,7 +383,7 @@ function remove(id) {
                         <div>
                             <InputLabel
                                 for="download_speed"
-                                value="Download Speed (M)"
+                                value="Download Speed (Mbps)"
                             />
                             <TextInput
                                 id="download_speed"
