@@ -72,7 +72,7 @@ class TenantMikrotikController extends Controller
         $script = $scriptGenerator->generate([
             'name' => $router->name,
             'username' => $router->router_username,
-            'password' => $router->router_password,
+            'router_password' => $router->router_password,
             'router_id' => $router->id,
             'sync_token' => $router->sync_token,
             'ca_url' => $caUrl,
@@ -173,8 +173,9 @@ class TenantMikrotikController extends Controller
         $script = $scriptGenerator->generate([
             'name' => $router->name,
             'username' => $router->router_username,
-            'password' => $router->router_password,
+            'router_password' => $router->router_password,
             'router_id' => $router->id,
+            'sync_token' => $router->sync_token,
             'ca_url' => $caUrl,
         ]);
 
@@ -203,7 +204,7 @@ class TenantMikrotikController extends Controller
         $script = $scriptGenerator->generate([
             'name' => $router->name,
             'username' => $router->router_username,
-            'password' => $router->router_password,
+            'router_password' => $router->router_password,
             'router_id' => $router->id,
             'sync_token' => $router->sync_token,
             'ca_url' => $caUrl,
