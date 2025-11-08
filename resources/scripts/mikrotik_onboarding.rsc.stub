@@ -29,7 +29,7 @@
 
 :put "-----------------Adding Hotspot RADIUS-----------------"
 /radius remove [find address=207.154.204.144]
-/radius add service=hotspot address=207.154.204.144 secret={{radius_secret}} disabled=no
+/radius add service=hotspot address=207.154.204.144 secret=testing123 disabled=no
 /ip hotspot profile set hs-profile-{{router_id}} use-radius=yes
 
 :put "-----------------Creating PPPoE Pool and Profile-----------------"
