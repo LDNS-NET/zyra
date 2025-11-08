@@ -65,9 +65,17 @@
 
 :put "-----------------Adding System Scripts-----------------"
 /system script remove [find name="disconnect-user"]
-/system script add name="disconnect-user" source=":local userName \$1; :local interface \$2; /ppp active remove [find name=\$userName]; /ip hotspot active remove [find user=\$userName]"
+/system script add name="disconnect-user" policy=read,write,test,policy source={
+    :local userName $1
+    :local interface $2
+    /ppp active remove [find name=$userName]
+    /ip hotspot active remove [find user=$userName]
+}
+
 /system script remove [find name="health-check"]
-/system script add name="health-check" source=":put \"Running system health check...\""
+/system script add name="health-check" policy=read,write,test,policy source={
+    :put "Running system health check..."
+}
 
 :put "-----------------Adding Scheduler-----------------"
 /system scheduler remove [find name="health-check"]
