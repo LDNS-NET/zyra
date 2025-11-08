@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import Pagination from '@/Components/Pagination.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import {
@@ -86,6 +86,7 @@ function remove(id) {
 </script>
 
 <template>
+    <Head title="SMS Templates"/>
     <AuthenticatedLayout>
         <template #header>
             <div class="flex justify-between">
@@ -101,7 +102,6 @@ function remove(id) {
                 </Link>
             </div>
         </template>
-
         <div class="rounded-xl py-12 dark:bg-black">
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div

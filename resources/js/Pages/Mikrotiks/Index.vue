@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
 import { Inertia } from '@inertiajs/inertia';
 import { route } from 'ziggy-js';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
@@ -231,6 +231,7 @@ function formatBytes(bytes) {
 </script>
 
 <template>
+    <Head title="Mikrotik Routers" />
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between">
@@ -252,65 +253,69 @@ function formatBytes(bytes) {
 
         <div class="py-6">
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                    <div class="border-b border-gray-200 bg-white p-6">
+                <div
+                    class="overflow-hidden border border-dashed border-blue-400 bg-white shadow-sm sm:rounded-lg dark:bg-black"
+                >
+                    <div
+                        class="border-b border-gray-200 bg-white p-6 dark:bg-black"
+                    >
                         <!-- Router Table -->
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
+                                <thead class="bg-gray-50 dark:bg-black">
                                     <tr>
                                         <th
-                                            class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                                            class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider"
                                         >
                                             Name
                                         </th>
                                         <th
-                                            class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                                            class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider"
                                         >
                                             IP Address
                                         </th>
                                         <th
-                                            class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                                            class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider"
                                         >
                                             Status
                                         </th>
                                         <th
-                                            class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                                            class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider"
                                         >
                                             Model
                                         </th>
                                         <th
-                                            class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                                            class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider"
                                         >
                                             OS Version
                                         </th>
                                         <th
-                                            class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                                            class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider"
                                         >
                                             Last Seen
                                         </th>
                                         <th
-                                            class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500"
+                                            class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider"
                                         >
                                             Actions
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody
-                                    class="divide-y divide-gray-200 bg-white"
+                                    class="divide-y divide-gray-200 bg-white dark:bg-black dark:text-white"
                                 >
                                     <tr
                                         v-for="router in routers"
                                         :key="router.id"
-                                        class="hover:bg-gray-50"
+                                        class="hover:bg-gray-50 dark:hover:bg-gray-800"
                                     >
                                         <td
-                                            class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900"
+                                            class="whitespace-nowrap px-6 py-4 text-sm font-extrabold text-gray-900 dark:text-gray-400"
                                         >
                                             {{ router.name }}
                                         </td>
                                         <td
-                                            class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"
+                                            class="whitespace-nowrap px-6 py-4 text-sm text-blue-700 dark:text-blue-400"
                                         >
                                             {{ router.ip_address }}
                                         </td>
@@ -327,17 +332,17 @@ function formatBytes(bytes) {
                                             </span>
                                         </td>
                                         <td
-                                            class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"
+                                            class="whitespace-nowrap px-6 py-4 text-sm"
                                         >
                                             {{ router.model || '-' }}
                                         </td>
                                         <td
-                                            class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"
+                                            class="whitespace-nowrap px-6 py-4 text-sm"
                                         >
                                             {{ router.os_version || '-' }}
                                         </td>
                                         <td
-                                            class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"
+                                            class="whitespace-nowrap px-6 py-4 text-sm"
                                         >
                                             {{
                                                 router.last_seen_at
@@ -357,7 +362,7 @@ function formatBytes(bytes) {
                                                     @click.stop="
                                                         toggleActions(router.id)
                                                     "
-                                                    class="router-actions-toggle rounded p-2 hover:bg-gray-100"
+                                                    class="router-actions-toggle rounded p-2 hover:bg-green-400"
                                                     :aria-expanded="
                                                         actionsOpen[router.id]
                                                             ? 'true'
@@ -366,7 +371,7 @@ function formatBytes(bytes) {
                                                     title="Show actions"
                                                 >
                                                     <MoreHorizontal
-                                                        class="h-5 w-5 text-gray-600"
+                                                        class="h-5 w-5 text-blue-600"
                                                     />
                                                 </button>
                                                 <transition name="fade">
@@ -608,7 +613,7 @@ function formatBytes(bytes) {
                             <InputLabel value="Connection Type" />
                             <select
                                 v-model="form.connection_type"
-                                class="mt-1 block w-full rounded-md border-gray-300"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:bg-black"
                             >
                                 <option value="api">API</option>
                                 <option value="ssh">SSH</option>
@@ -622,7 +627,7 @@ function formatBytes(bytes) {
                             <InputLabel value="OpenVPN Profile (optional)" />
                             <select
                                 v-model="form.openvpn_profile_id"
-                                class="mt-1 block w-full rounded-md border-gray-300"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:bg-black"
                             >
                                 <option :value="null">None</option>
                                 <option
@@ -661,25 +666,33 @@ function formatBytes(bytes) {
         </Modal>
 
         <!-- Router Details Modal -->
-        <Modal :show="showDetails" @close="showDetails = false" max-width="4xl">
-            <div class="p-6">
+        <Modal :show="showDetails" @close="showDetails = false">
+            <div class="rounded-xl border border-dashed border-green-400 p-6">
                 <h2 class="mb-4 text-lg font-semibold">
                     Router Details: {{ selectedRouter?.name }}
                 </h2>
                 <div class="mb-4 grid grid-cols-2 gap-4">
-                    <div>
+                    <div
+                        class="rounded-xl border border-dashed border-blue-400 bg-gray-50 p-2 dark:bg-black"
+                    >
                         <span class="font-medium">IP:</span>
                         {{ selectedRouter?.ip_address }}
                     </div>
-                    <div>
+                    <div
+                        class="rounded-xl border border-dashed border-blue-400 bg-gray-50 p-2 dark:bg-black"
+                    >
                         <span class="font-medium">Model:</span>
                         {{ selectedRouter?.model || '-' }}
                     </div>
-                    <div>
+                    <div
+                        class="rounded-xl border border-dashed border-blue-400 bg-gray-50 p-2 dark:bg-black"
+                    >
                         <span class="font-medium">OS Version:</span>
                         {{ selectedRouter?.os_version || '-' }}
                     </div>
-                    <div>
+                    <div
+                        class="rounded-xl border border-dashed border-blue-400 bg-gray-50 p-2 dark:bg-black"
+                    >
                         <span class="font-medium">Uptime:</span>
                         {{
                             selectedRouter?.uptime
@@ -687,11 +700,15 @@ function formatBytes(bytes) {
                                 : '-'
                         }}
                     </div>
-                    <div>
+                    <div
+                        class="rounded-xl border border-dashed border-blue-400 bg-gray-50 p-2 dark:bg-black"
+                    >
                         <span class="font-medium">CPU Usage:</span>
                         {{ selectedRouter?.cpu_usage ?? '-' }}%
                     </div>
-                    <div>
+                    <div
+                        class="rounded-xl border border-dashed border-blue-400 bg-gray-50 p-2 dark:bg-black"
+                    >
                         <span class="font-medium">Memory Usage:</span>
                         {{ selectedRouter?.memory_usage ?? '-' }}%
                     </div>
@@ -699,7 +716,9 @@ function formatBytes(bytes) {
                         <span class="font-medium">Temperature:</span>
                         {{ selectedRouter.temperature }}°C
                     </div>
-                    <div>
+                    <div
+                        class="rounded-xl border border-dashed border-blue-400 bg-gray-50 p-2 dark:bg-black"
+                    >
                         <span class="font-medium">Last Seen:</span>
                         {{
                             selectedRouter?.last_seen_at
@@ -716,9 +735,9 @@ function formatBytes(bytes) {
                 </div>
 
                 <div class="mb-4">
-                    <h3 class="mb-2 font-semibold">Logs</h3>
+                    <h3 class="mb-2 font-extrabold text-blue-400">Logs</h3>
                     <div
-                        class="max-h-32 overflow-y-auto rounded bg-gray-50 p-2"
+                        class="max-h-32 overflow-y-auto rounded-xl bg-gray-50 p-2 dark:bg-black"
                     >
                         <div
                             v-for="log in selectedRouter?.logs"
@@ -743,11 +762,11 @@ function formatBytes(bytes) {
                 </div>
 
                 <div class="mb-4">
-                    <h3 class="mb-2 font-semibold">
+                    <h3 class="mb-2 font-semibold text-blue-500">
                         Bandwidth Usage (last 5 records)
                     </h3>
                     <div
-                        class="max-h-32 overflow-y-auto rounded bg-gray-50 p-2"
+                        class="max-h-32 overflow-y-auto rounded-xl bg-gray-50 p-2 dark:bg-black"
                     >
                         <div
                             v-for="bw in selectedRouter?.bandwidth_usage?.slice(
@@ -772,9 +791,9 @@ function formatBytes(bytes) {
                 </div>
 
                 <div class="mb-4">
-                    <h3 class="mb-2 font-semibold">Alerts</h3>
+                    <h3 class="mb-2 font-semibold text-blue-500">Alerts</h3>
                     <div
-                        class="max-h-32 overflow-y-auto rounded bg-gray-50 p-2"
+                        class="max-h-32 overflow-y-auto rounded-xl bg-gray-50 p-2 dark:bg-black"
                     >
                         <div
                             v-for="alert in selectedRouter?.alerts"

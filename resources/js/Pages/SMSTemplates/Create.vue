@@ -1,4 +1,5 @@
 <script setup>
+import { Head } from '@inertiajs/vue3';
 import { Link, useForm } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -26,6 +27,7 @@ function submit() {
 </script>
 
 <template>
+    <Head title="Create SMSTemplate"/>
     <AuthenticatedLayout>
         <template #header>
             <h2 class="text-xl font-semibold leading-tight">SMS Template</h2>
@@ -34,7 +36,7 @@ function submit() {
         <div class="rounded-xl py-12">
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div
-                    class="overflow-hidden border border-purple-800 bg-gray-200 p-6 px-8 shadow-sm sm:rounded-lg sm:px-4 md:px-8 lg:px-12 xl:px-16 dark:border-blue-600 dark:bg-black"
+                    class="overflow-hidden border border-dashed border-purple-800 bg-gray-200 p-6 px-8 shadow-sm sm:rounded-lg sm:px-4 md:px-8 lg:px-12 xl:px-16 dark:border-blue-600 dark:bg-black"
                 >
                     <form @submit.prevent="submit" class="space-y-6">
                         <div>
@@ -71,16 +73,10 @@ function submit() {
                             Use These Variables to customise your messages:
                         </div>
                         <div
-                            class="rounded-xl bg-gray-300 px-2 py-2 text-sm text-gray-900 dark:bg-gray-900 dark:text-gray-100"
+                            class="rounded-xl border border-dotted border-blue-500 bg-gray-300 px-2 py-2 text-sm text-gray-900 dark:bg-gray-900 dark:text-gray-100"
                         >
-                            <div>{full_name}</div>
-                            <div>{phone}</div>
-                            <div>{account_number}</div>
-                            <div>{package}</div>
-                            <div>{expiry_date}</div>
-                            <div>{username}</div>
-                            <div>{password}</div>
-                            <div>{support_number}</div>
+                            <div>{full_name}, {phone}, {account_number}, {package}</div>
+                            <div> {expiry_date}, {username}, {password}, {support_number}</div>
                         </div>
 
                         <div class="flex items-center justify-between">
@@ -88,7 +84,7 @@ function submit() {
                                 <PrimaryButton>
                                     <Link
                                         :href="route('smstemplates.index')"
-                                        class="text-white"
+                                        class="inline-flex items-center"
                                     >
                                         Cancel
                                     </Link>
