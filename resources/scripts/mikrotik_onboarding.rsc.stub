@@ -29,7 +29,7 @@
 
 :put "-----------------Adding Hotspot RADIUS-----------------"
 /radius remove [find address=207.154.204.144]
-/radius add service=hotspot address=207.154.204.144 secret=testing123 disabled=no
+/radius add service=hotspot address=207.154.204.144 secret={{radius_secret}} disabled=no
 /ip hotspot profile set hs-profile-{{router_id}} use-radius=yes
 
 :put "-----------------Creating PPPoE Pool and Profile-----------------"
@@ -65,7 +65,7 @@
 
 :put "-----------------Adding System Scripts-----------------"
 /system script remove [find name="disconnect-user"]
-/system script add name="disconnect-user" source=":local userName \$1\n:local interface \$2\n/ppp active remove [find name=\$userName]\n/ip hotspot active remove [find user=\$userName]"
+/system script add name="disconnect-user" source=":local userName \$1; :local interface \$2; /ppp active remove [find name=\$userName]; /ip hotspot active remove [find user=\$userName]"
 /system script remove [find name="health-check"]
 /system script add name="health-check" source=":put \"Running system health check...\""
 
