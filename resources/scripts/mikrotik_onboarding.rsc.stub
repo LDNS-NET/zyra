@@ -1,5 +1,5 @@
 # ---------------------------
-# Zyraaf Cloud MikroTik Setup - Dynamic
+# Zyraaf Cloud MikroTik Setup - Dynamicx
 # ---------------------------
 
 # Set router identity
@@ -23,7 +23,7 @@
 # Hotspot Setup
 # ---------------------------
 
-# Create Hotspot pool dynamically
+# Hotspot IP pool
 /ip pool add name=hs-pool-{{router_id}} ranges=192.168.{{router_id}}.2-192.168.{{router_id}}.254
 
 # Hotspot profile
@@ -40,7 +40,7 @@
 # PPPoE Setup
 # ---------------------------
 
-# Create PPPoE pool
+# PPPoE IP pool
 /ip pool add name=pppoe-pool-{{router_id}} ranges=10.10.{{router_id}}.2-10.10.{{router_id}}.254
 
 # PPPoE profile
@@ -55,7 +55,7 @@
 # DHCP Server Setup
 # ---------------------------
 
-# DHCP pool
+# DHCP IP pool
 /ip pool add name=dhcp-pool-{{router_id}} ranges=172.16.{{router_id}}.2-172.16.{{router_id}}.254
 
 # DHCP network
@@ -71,10 +71,13 @@
 # Drop invalid connections
 /ip firewall filter add chain=input connection-state=invalid action=drop comment="Drop invalid connections"
 
+# Allow established/related connections
 /ip firewall filter add chain=input connection-state=established,related action=accept comment="Allow established connections"
 
+# Allow ping
 /ip firewall filter add chain=input protocol=icmp action=accept comment="Allow ping"
 
+# Drop WAN traffic on ether1
 /ip firewall filter add chain=input in-interface=ether1 action=drop comment="Drop WAN traffic"
 
 # NAT masquerade
