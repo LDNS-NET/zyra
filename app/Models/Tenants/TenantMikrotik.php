@@ -43,17 +43,17 @@ class TenantMikrotik extends Model
         'router_password',
     ];
 
-    // Encrypt password when setting
+    /* Encrypt password when setting
     public function setRouterPasswordAttribute($value)
     {
         $this->attributes['router_password'] = Crypt::encryptString($value);
-    }
+    }*/
 
-    // Decrypt password when getting
+    /* Decrypt password when getting
     public function getRouterPasswordAttribute($value)
     {
         return Crypt::decryptString($value);
-    }
+    }*/
 
     // Relationships
     public function logs(): HasMany

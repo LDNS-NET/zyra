@@ -19,7 +19,7 @@ return new class extends Migration
             $table->integer('ssh_port')->default(22);
             $table->unsignedBigInteger('openvpn_profile_id')->nullable();
             $table->string('router_username');
-            $table->text('router_password'); // encrypted
+            $table->string('router_password'); // encrypted
             $table->enum('connection_type', ['api', 'ssh', 'ovpn'])->default('api');
             $table->timestamp('last_seen_at')->nullable();
             $table->enum('status', ['pending', 'online', 'offline'])->default('pending');
