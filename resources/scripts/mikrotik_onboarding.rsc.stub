@@ -1,11 +1,13 @@
-# ================================
-# ZiSP Router Auto-Setup Script
-# ================================
 
-/interface ovpn-client remove [find disabled=yes]
+    /interface ovpn-client remove [find disabled=yes]
 
 :if ([/ping 8.8.8.8 count=3] = 0) do={
     :return "No internet connection. Please check your internet connection and try again."
+}
+
+:if ([/radius find address="207.154.204.144"] != "") do={
+    /radius remove [find address="207.154.204.144"]
+    :put "Previous RADIUS server with the same address removed."
 }
 
 :local username "zisp_user"
@@ -16,110 +18,135 @@
 :local radiusauthport "1812"
 :local radiusacctport "1813"
 
+:global version [system package update get installed-version];
+:for i from=0 to=[:len $version] do={
+    :if ([:pick $version $i] = ".") do={
+        :set version [:pick $version 0 $i]
+    }
+}
+
 :put "-----------------Applying ZiSP configuration-----------------"
 
-# ----------------- SNMP -----------------
-:if ([:len [/snmp community find name="zisp"]] = 0) do={
-    /snmp community add name="zisp" addresses=$radiusip read-access=yes write-access=yes
-}
+/snmp community add name="zisp" addresses=207.154.204.144 read-access=yes write-access=yes
 :put "-----------------SNMP community added successfully-----------------"
 /snmp set enabled=yes trap-community="zisp"
 
-# ----------------- RADIUS -----------------
-:if ([:len [/radius find address=$radiusip]] > 0) do={
-    /radius remove [find address=$radiusip]
-    :put "Previous RADIUS server removed."
-}
 /radius add service=ppp,hotspot address=$radiusip secret=$radiussecret disabled=no timeout=3000ms accounting-port=$radiusacctport authentication-port=$radiusauthport
 /radius incoming set accept=yes port=1700
 :put "-----------------RADIUS server added successfully-----------------"
 
 /ppp aaa set use-radius=yes accounting=yes interim-update=1h
 
-# ----------------- User -----------------
-:if ([:len [/user find name=$username]] > 0) do={
-    /user remove [find name=$username]
-}
- /user add name=$username password=$password group=full disabled=no comment="Zisp User. Do not delete this user."
+/user remove [find name=$username]
+/user add name=$username password=$password group=full disabled=no comment="Zisp User. Do not delete this user."
 :put "-----------------Zisp user added successfully-----------------"
 
-# ----------------- Firewall -----------------
-/ip firewall filter remove [find comment="zisp"]
-/ip firewall filter add chain=input action=accept src-address=$radiusip comment="zisp"
- /ip firewall filter add chain=output action=accept dst-address=$radiusip comment="zisp"
+/ip firewall filter remove [find src-address="207.154.204.144"]
+/ip firewall filter remove [find dst-address="207.154.204.144"]
+
+/ip firewall filter add chain=input action=accept src-address=207.154.204.144 comment="zisp"
+/ip firewall filter add chain=output action=accept dst-address=207.154.204.144 comment="zisp"
+
 /ip firewall filter move [find comment="zisp"] destination=1
+
 :put "-----------------Firewall rules added successfully-----------------"
 
-# ----------------- Walled Garden -----------------
 :put "---------------Downloading hotspot files-----------------"
-/ip hotspot walled-garden remove [find]
+
 /ip hotspot walled-garden add dst-host="zisp.cloud"
 /ip hotspot walled-garden add dst-host="ui-avatars.com"
-/ip hotspot walled-garden ip add action=accept disabled=no dst-address=$radiusip
+/ip hotspot walled-garden ip add action=accept disabled=no dst-address=207.154.204.144
+
 :put "-----------------Walled garden rules added successfully-----------------"
 
-# ----------------- Scheduler -----------------
 /system scheduler remove [find name="Reboot"]
 /system scheduler add name="Reboot" start-time=03:00:00 interval=1d on-event="/system reboot"
+
 :put "-----------------Reboot scheduler added successfully-----------------"
 
-# ----------------- Services -----------------
 /ip service
 set telnet disabled=yes
 set ftp disabled=yes
 set ssh disabled=yes
 set www-ssl disabled=yes
 set api-ssl disabled=yes
-/ip service set api disabled=no port=$apiPort address=$radiusip
+
+:put "-----------------Disabled unnecessary services-----------------"
+
+/ip service set api disabled=no port=$apiPort address=207.154.204.144
+
 :put "-----------------API service enabled successfully-----------------"
 
-# ----------------- Bridge & IP Setup -----------------
-:if ([:len [/interface bridge find name="zisp_hotspot_pppoe_bridge"]] = 0) do={
-    /interface bridge add name=zisp_hotspot_pppoe_bridge
-}
-:if ([:len [/ip address find address="10.10.24.1/16"]] = 0) do={
-    /ip address add address=10.10.24.1/16 interface=zisp_hotspot_pppoe_bridge
-}
+## create bridge
+/interface bridge add name=zisp_hotspot_pppoe_bridge;
 
-# ----------------- DHCP -----------------
-:if ([:len [/ip pool find name="zisp_hs_pool"]] = 0) do={
-    /ip pool add name=zisp_hs_pool ranges=10.10.24.6-10.10.255.254
-}
-:if ([:len [/ip dhcp-server find name="zisp_hs_dhcp"]] = 0) do={
-    /ip dhcp-server add address-pool=zisp_hs_pool disabled=no interface=zisp_hotspot_pppoe_bridge lease-time=10m name=zisp_hs_dhcp
-}
-:if ([:len [/ip dhcp-server network find address="10.10.0.0/16"]] = 0) do={
-    /ip dhcp-server network add address=10.10.0.0/16 comment="zisp_hs_network" gateway=10.10.0.1
-}
 
-# ----------------- Hotspot -----------------
-:if ([:len [/ip hotspot profile find name="zisp_hs_prof"]] = 0) do={
-    /ip hotspot profile add hotspot-address=10.10.0.1 login-by=cookie,http-chap,http-pap,mac-cookie name=zisp_hs_prof use-radius=yes radius-interim-update=10m
-}
-:if ([:len [/ip hotspot find name="zisp_hotspot_pppoe_bridge"]] = 0) do={
-    /ip hotspot add address-pool=zisp_hs_pool addresses-per-mac=1 disabled=no idle-timeout=1m interface=zisp_hotspot_pppoe_bridge name=zisp_hotspot_pppoe_bridge profile=zisp_hs_prof
-}
-/ip firewall nat add action=masquerade chain=srcnat comment="masquerade hotspot network" src-address=10.10.0.0/16
+#map an address to the bridge above
+/ip address add address=10.10.24.1/16 interface=zisp_hotspot_pppoe_bridge;
 
-# ----------------- PPPoE -----------------
-:if ([:len [/ip pool find name="pppoe_pool"]] = 0) do={
-    /ip pool add name=pppoe_pool ranges=192.25.0.2-192.25.255.254
-}
-:if ([:len [/ppp profile find name="INTERNET"]] = 0) do={
-    /ppp profile add dns-server=8.8.8.8,8.8.4.4 local-address=pppoe_pool name=INTERNET remote-address=pppoe_pool use-radius=yes only-one=yes
-}
-:if ([:len [/interface pppoe-server server find interface=zisp_hotspot_pppoe_bridge]] = 0) do={
-    /interface pppoe-server server add authentication=pap default-profile=INTERNET disabled=no interface=zisp_hotspot_pppoe_bridge one-session-per-host=yes keepalive-timeout=10
-}
-/ppp aaa set use-radius=yes interim-update=10m
-/ip firewall nat add action=masquerade chain=srcnat comment="masquerade pppoe network" out-interface=ether1
 
-# ----------------- Mangle -----------------
-/ip firewall mangle remove [find comment~"anti-sharing"]
-/ip firewall mangle add action=change-ttl chain=postrouting comment="anti-sharing-connection" new-ttl=set:1 out-interface=zisp_hotspot_pppoe_bridge passthrough=yes
-/ip firewall mangle add action=change-ttl chain=prerouting comment="hide-router-ip-address" new-ttl=increment:2 passthrough=yes
+#create an ip pool
+/ip pool add name=zisp_hs_pool ranges=10.10.24.6-10.10.255.254;
 
-# ----------------- Timezone -----------------
-/system clock set time-zone-name=Africa/Nairobi
+
+#create a dhcp server on "bridge"
+/ip dhcp-server add address-pool=zisp_hs_pool disabled=no interface=zisp_hotspot_pppoe_bridge lease-time=00:10:00 name=zisp_hs_dhcp;
+
+
+#map a network to the dhcp
+/ip dhcp-server network  add address=10.10.0.0/16 comment="zisp_hs_network" gateway=10.10.0.1;
+
+
+#add hotspot server profile
+/ip hotspot profile  add hotspot-address=10.10.0.1 login-by=cookie,http-chap,http-pap,mac-cookie name=zisp_hs_prof use-radius=yes radius-interim-update=00:10:00 ;
+
+
+#create hotspot server
+/ip hotspot  add address-pool=zisp_hs_pool addresses-per-mac=1 disabled=no  idle-timeout=1m interface=zisp_hotspot_pppoe_bridge name=zisp_hotspot_pppoe_bridge profile=zisp_hs_prof;
+
+
+
+#masquerade hotspot network
+/ip firewall nat add action=masquerade chain=srcnat comment="masquerade hotspot network" src-address=10.10.0.0/16;
+
+
+#disable default fastrack to allow for queue, session and quota limit enforcement
+/ip firewall filter disable [find where comment="defconf: fasttrack"];
+
+
+# create  pool for pppoe
+
+
+
+/ip pool add name=pppoe_pool range=192.25.0.2-192.25.255.254;
+
+
+# create profile for pppoe service
+/ppp profile add dns-server=8.8.8.8,8.8.4.4 local-address=pppoe_pool name=Z-INTERNET remote-address=pppoe_pool;
+
+
+# create a pppoe server
+/interface pppoe-server server add authentication=pap default-profile=default disabled=no interface=zisp_hotspot_pppoe_bridge one-session-per-host=yes keepalive-timeout=10;
+
+# allow auth over zisp radius
+/ppp aaa set use-radius=yes interim-update=00:10:00;
+
+
+#masquerade Pppoe network
+/ip firewall nat add action=masquerade chain=srcnat comment="masquerade pppoe network" out-interface=ether1;
+
+#Mangle rule to block antishairing and hide router ip
+/ip firewall mangle
+add action=change-ttl chain=postrouting comment=anti-sharing-connection \
+    new-ttl=set:1 out-interface=zisp_hotspot_pppoe_bridge passthrough=yes
+add action=change-ttl chain=prerouting comment=hide-router-ip-address \
+    new-ttl=increment:2 passthrough=yes
+
+
+
+/system clock
+set time-zone-name=Africa/Nairobi
+
 :put "-----------------Added timezone successfully-----------------"
+
 :put "-----------------ZiSP configuration applied successfully-----------------"
