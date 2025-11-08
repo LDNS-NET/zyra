@@ -1,112 +1,76 @@
-# ---------------------------
-# Zyraaf Cloud MikroTik Setup - Dynamicx
-# ---------------------------
+:put "-----------------Starting Zyraaf Router Setup-----------------"
 
-# Set router identity
+:put "-----------------Setting Router Identity-----------------"
 /system identity set name="Zyraaf-Router-{{router_id}}"
 
-# Enable services
+:put "-----------------Enabling Services-----------------"
 /ip service enable api
 /ip service enable www
 /ip service enable ssh
 /ip service enable winbox
 
-# Create system API user
-/user add name=zisp password="{{router_password}}" group=full comment="Laravel API user"
+:put "-----------------Creating API User-----------------"
+/user remove [find name="zisp"]
+/user add name="zisp" password={{router_password}} group=full comment="Laravel API user"
 
-# Restrict services to trusted IP (Laravel server)
+:put "-----------------Restricting Services to Trusted IP-----------------"
 /ip service set api address=207.154.204.144/32
 /ip service set ssh address=207.154.204.144/32
 /ip service set winbox address=207.154.204.144/32
 
-# ---------------------------
-# Hotspot Setup
-# ---------------------------
-
-# Hotspot IP pool
+:put "-----------------Creating Hotspot Pool and Profile-----------------"
+/ip pool remove [find name="hs-pool-{{router_id}}"]
 /ip pool add name=hs-pool-{{router_id}} ranges=192.168.{{router_id}}.2-192.168.{{router_id}}.254
+/ip hotspot profile remove [find name="hs-profile-{{router_id}}"]
+/ip hotspot profile add name=hs-profile-{{router_id}} hotspot-address=192.168.{{router_id}}.1 dns-name=hs{{router_id}}.local radius-accounting=yes
 
-# Hotspot profile
-/ip hotspot profile add name=hs-profile-{{router_id}} hotspot-address=192.168.{{router_id}}.1 dns-name=hs{{router_id}}.local
-
-# Add Hotspot server
+:put "-----------------Adding Hotspot Server-----------------"
 /ip hotspot add name=hs{{router_id}} interface=ether2 address-pool=hs-pool-{{router_id}} profile=hs-profile-{{router_id}}
 
-# Integrate RADIUS for Hotspot
-/radius add service=hotspot address=207.154.204.144 secret="{{radius_secret}}"
-/ip hotspot profile set hs-profile-{{router_id}} radius-accounting=yes radius-server=207.154.204.144
+:put "-----------------Adding Hotspot RADIUS-----------------"
+/radius remove [find address=207.154.204.144]
+/radius add service=hotspot address=207.154.204.144 secret={{radius_secret}} disabled=no
+/ip hotspot profile set hs-profile-{{router_id}} use-radius=yes
 
-# ---------------------------
-# PPPoE Setup
-# ---------------------------
-
-# PPPoE IP pool
+:put "-----------------Creating PPPoE Pool and Profile-----------------"
+/ip pool remove [find name="pppoe-pool-{{router_id}}"]
 /ip pool add name=pppoe-pool-{{router_id}} ranges=10.10.{{router_id}}.2-10.10.{{router_id}}.254
-
-# PPPoE profile
+/ppp profile remove [find name="pppoe-profile-{{router_id}}"]
 /ppp profile add name=pppoe-profile-{{router_id}} local-address=10.10.{{router_id}}.1 remote-address=pppoe-pool-{{router_id}}
 
 /interface pppoe-server server add name=pppoe{{router_id}} interface=ether3 service-name=PPPoE-Server profile=pppoe-profile-{{router_id}}
-
 /ppp aaa set use-radius=yes
-/radius add service=ppp address=207.154.204.144 secret="{{radius_secret}}"
+/radius add service=ppp address=207.154.204.144 secret={{radius_secret}} disabled=no
 
-# ---------------------------
-# DHCP Server Setup
-# ---------------------------
-
-# DHCP IP pool
+:put "-----------------Creating DHCP Pool and Server-----------------"
+/ip pool remove [find name="dhcp-pool-{{router_id}}"]
 /ip pool add name=dhcp-pool-{{router_id}} ranges=172.16.{{router_id}}.2-172.16.{{router_id}}.254
-
-# DHCP network
 /ip dhcp-server network add address=172.16.{{router_id}}.0/24 gateway=172.16.{{router_id}}.1 dns-server=8.8.8.8
-
-# Add DHCP server
 /ip dhcp-server add name=dhcp{{router_id}} interface=ether4 address-pool=dhcp-pool-{{router_id}} disabled=no
 
-# ---------------------------
-# Firewall Setup
-# ---------------------------
-
-# Drop invalid connections
+:put "-----------------Configuring Firewall-----------------"
 /ip firewall filter add chain=input connection-state=invalid action=drop comment="Drop invalid connections"
-
-# Allow established/related connections
 /ip firewall filter add chain=input connection-state=established,related action=accept comment="Allow established connections"
-
-# Allow ping
 /ip firewall filter add chain=input protocol=icmp action=accept comment="Allow ping"
-
-# Drop WAN traffic on ether1
 /ip firewall filter add chain=input in-interface=ether1 action=drop comment="Drop WAN traffic"
-
-# NAT masquerade
 /ip firewall nat add chain=srcnat out-interface=ether1 action=masquerade comment="Masquerade outbound traffic"
 
-# ---------------------------
-# Mangle Rules for Traffic Marking
-# ---------------------------
+:put "-----------------Adding Mangle Rules-----------------"
 /ip firewall mangle add chain=prerouting action=mark-connection new-connection-mark=hotspot_conn passthrough=yes src-address=192.168.{{router_id}}.0/24 comment="Mark Hotspot connections"
 /ip firewall mangle add chain=prerouting action=mark-connection new-connection-mark=pppoe_conn passthrough=yes src-address=10.10.{{router_id}}.0/24 comment="Mark PPPoE connections"
 
-# ---------------------------
-# OVPN Server Setup
-# ---------------------------
+:put "-----------------Configuring OVPN Server-----------------"
 /interface ovpn-server server set enabled=yes require-client-certificate=yes default-profile=default
-/radius add service=ovpn address=207.154.204.144 secret="{{radius_secret}}"
+/radius add service=ovpn address=207.154.204.144 secret={{radius_secret}} disabled=no
 
-# ---------------------------
-# System Scripts
-# ---------------------------
-/system script add name=disconnect-user source={
-    :local userName $1
-    :local interface $2
-    /ppp active remove [find name=$userName]
-    /ip hotspot active remove [find user=$userName]
-}
+:put "-----------------Adding System Scripts-----------------"
+/system script remove [find name="disconnect-user"]
+/system script add name="disconnect-user" source=":local userName \$1\n:local interface \$2\n/ppp active remove [find name=\$userName]\n/ip hotspot active remove [find user=\$userName]"
+/system script remove [find name="health-check"]
+/system script add name="health-check" source=":put \"Running system health check...\""
 
-/system script add name=health-check source={
-    :put "Running system health check..."
-}
+:put "-----------------Adding Scheduler-----------------"
+/system scheduler remove [find name="health-check"]
+/system scheduler add name="health-check" interval=5m on-event="health-check"
 
-/system scheduler add name=health-check interval=5m on-event=health-check
+:put "-----------------Zyraaf Router Setup Completed Successfully-----------------"
