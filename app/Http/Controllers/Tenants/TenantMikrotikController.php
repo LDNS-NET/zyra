@@ -162,17 +162,51 @@ class TenantMikrotikController extends Controller
 
     /**
      * Used by the Vue SetupScript.vue component.
+     * Checks if router is online - either via API connection or recent sync.
      */
     public function pingRouter($id)
     {
         $router = TenantMikrotik::findOrFail($id);
-        $isOnline = $this->testRouterConnection($router);
+        
+        // Refresh router data from database
+        $router->refresh();
+        
+        // Check if router has been synced recently (within last 5 minutes)
+        $recentlySynced = $router->last_seen_at && 
+            $router->last_seen_at->gt(now()->subMinutes(5)) &&
+            $router->status === 'online';
+        
+        // If router has an IP address, try API connection
+        if ($router->ip_address) {
+            $isOnline = $this->testRouterConnection($router);
+            
+            // If API test fails but router was recently synced, consider it online
+            if (!$isOnline && $recentlySynced) {
+                $isOnline = true;
+                $router->status = 'online';
+                $router->save();
+            }
+        } else {
+            // No IP address yet - check if router synced recently
+            if ($recentlySynced) {
+                $isOnline = true;
+                $router->status = 'online';
+                $router->save();
+            } else {
+                $isOnline = false;
+            }
+        }
 
         return response()->json([
             'success' => $isOnline,
-            'status' => $isOnline ? 'online' : 'offline',
-            'message' => $isOnline ? 'Router is online!' : 'Router is offline!',
+            'status' => $isOnline ? 'online' : ($router->ip_address ? 'offline' : 'pending'),
+            'message' => $isOnline 
+                ? 'Router is online!' 
+                : ($router->ip_address 
+                    ? 'Router is offline. Please check connection.' 
+                    : 'Waiting for router to sync...'),
             'last_seen_at' => $router->last_seen_at,
+            'ip_address' => $router->ip_address,
         ]);
     }
 
@@ -246,45 +280,88 @@ class TenantMikrotikController extends Controller
 
     /**
      * Handle router phone-home sync endpoint.
+     * This endpoint is called by the MikroTik router after running the onboarding script.
      */
     public function sync($mikrotik, Request $request)
     {
-        $router = TenantMikrotik::findOrFail($mikrotik);
+        try {
+            $router = TenantMikrotik::findOrFail($mikrotik);
 
-        $token = $request->query('token') ?? $request->input('token');
-        if ($token !== $router->sync_token) {
-            return response()->json(['success' => false, 'message' => 'Invalid sync token.'], 403);
+            // Validate sync token
+            $token = $request->query('token') ?? $request->input('token');
+            if (!$token || $token !== $router->sync_token) {
+                Log::warning('Invalid sync token attempt', [
+                    'router_id' => $router->id,
+                    'provided_token' => $token ? 'present' : 'missing',
+                    'client_ip' => $request->ip(),
+                ]);
+                return response()->json([
+                    'success' => false, 
+                    'message' => 'Invalid sync token.'
+                ], 403);
+            }
+
+            // Get router IP from request (if provided) or use client IP
+            $routerIp = $request->input('ip_address') ?? $request->ip();
+            
+            // Validate IP address
+            if ($routerIp && !filter_var($routerIp, FILTER_VALIDATE_IP)) {
+                Log::warning('Invalid IP address in sync request', [
+                    'router_id' => $router->id,
+                    'ip' => $routerIp,
+                ]);
+                $routerIp = $request->ip(); // Fallback to client IP
+            }
+            
+            $updateData = [
+                'status' => 'online',
+                'last_seen_at' => now(),
+            ];
+            
+            // Update IP address if provided and different (or if not set)
+            if ($routerIp && ($routerIp !== $router->ip_address || !$router->ip_address)) {
+                $updateData['ip_address'] = $routerIp;
+            }
+
+            $router->update($updateData);
+
+            // Log the sync
+            $router->logs()->create([
+                'action' => 'sync',
+                'message' => 'Router phone-home sync received. IP: ' . ($routerIp ?? 'not provided'),
+                'status' => 'success',
+                'response_data' => [
+                    'ip_address' => $routerIp,
+                    'client_ip' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ],
+            ]);
+
+            Log::info('Router sync successful', [
+                'router_id' => $router->id,
+                'router_name' => $router->name,
+                'ip_address' => $router->ip_address,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sync received. Router marked online.',
+                'status' => 'online',
+                'ip_address' => $router->ip_address,
+                'last_seen_at' => $router->last_seen_at->toIso8601String(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Router sync failed', [
+                'router_id' => $mikrotik,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Sync failed: ' . $e->getMessage(),
+            ], 500);
         }
-
-        // Get router IP from request (if provided) or use client IP
-        $routerIp = $request->input('ip_address') ?? $request->ip();
-        
-        $updateData = [
-            'status' => 'online',
-            'last_seen_at' => now(),
-        ];
-        
-        // Update IP address if provided and different
-        if ($routerIp && $routerIp !== $router->ip_address) {
-            $updateData['ip_address'] = $routerIp;
-        }
-
-        $router->update($updateData);
-
-        $router->logs()->create([
-            'action' => 'sync',
-            'message' => 'Router phone-home sync received. IP: ' . ($routerIp ?? 'not provided'),
-            'status' => 'success',
-            'response_data' => $request->all(),
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Sync received. Router marked online.',
-            'status' => 'online',
-            'ip_address' => $router->ip_address,
-            'last_seen_at' => $router->last_seen_at,
-        ]);
     }
 
     /**

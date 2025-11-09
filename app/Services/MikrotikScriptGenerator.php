@@ -44,13 +44,15 @@ class MikrotikScriptGenerator
 
         if (!$sync_url && !empty($router_id)) {
             try {
-                $sync_url = route('mikrotiks.sync', ['mikrotik' => $router_id]);
+                // Generate absolute URL with full domain
+                $sync_url = url(route('mikrotiks.sync', ['mikrotik' => $router_id], false));
                 if ($sync_token) {
                     $sync_url .= "?token=$sync_token";
                 }
             } catch (\Exception $e) {
-                // Fallback if route helper is not available
-                $sync_url = url("/mikrotiks/{$router_id}/sync");
+                // Fallback: use config app.url or request URL
+                $baseUrl = config('app.url') ?? (request()->scheme() . '://' . request()->getHttpHost());
+                $sync_url = rtrim($baseUrl, '/') . "/mikrotiks/{$router_id}/sync";
                 if ($sync_token) {
                     $sync_url .= "?token=$sync_token";
                 }

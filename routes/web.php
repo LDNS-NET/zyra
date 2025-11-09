@@ -48,6 +48,15 @@ Route::get('/', function () {
 
 /*
 |--------------------------------------------------------------------------
+| Public MikroTik Sync Endpoint (Token-based authentication)
+|--------------------------------------------------------------------------
+| This endpoint is called by MikroTik routers after running the onboarding script.
+| It uses token-based authentication (sync_token) instead of session auth.
+*/
+Route::post('mikrotiks/{mikrotik}/sync', [TenantMikrotikController::class, 'sync'])->name('mikrotiks.sync');
+
+/*
+|--------------------------------------------------------------------------
 | Authenticated + Subscription Checked Routes (Tenants)
 |--------------------------------------------------------------------------
 */
@@ -139,7 +148,7 @@ Route::middleware(['auth', 'verified', 'check.subscription'])
         Route::get('mikrotiks/{mikrotik}/remote-management', [TenantMikrotikController::class, 'remoteManagement'])->name('mikrotiks.remoteManagement');
         Route::get('mikrotiks/{mikrotik}/ca.crt', [TenantMikrotikController::class, 'downloadCACert'])->name('mikrotiks.downloadCACert');
         Route::get('mikrotiks/{mikrotik}/reprovision', [TenantMikrotikController::class, 'reprovision'])->name('mikrotiks.reprovision');
-        Route::post('mikrotiks/{mikrotik}/sync', [TenantMikrotikController::class, 'sync'])->name('mikrotiks.sync');
+        // Note: sync route is defined in Public Routes section above (no auth required)
 
 
         //captive portal
