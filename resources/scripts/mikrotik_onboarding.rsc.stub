@@ -92,13 +92,36 @@
 }
 
 # Firewall rules for trusted IP
-/ip firewall filter remove [find src-address=$trustedIp]
-/ip firewall filter remove [find dst-address=$trustedIp]
+# Remove existing rules first
+:do {
+    /ip firewall filter remove [find src-address=$trustedIp comment="zisp"]
+} on-error={}
+:do {
+    /ip firewall filter remove [find dst-address=$trustedIp comment="zisp"]
+} on-error={}
 
-/ip firewall filter add chain=input action=accept src-address=$trustedIp comment="zisp"
-/ip firewall filter add chain=output action=accept dst-address=$trustedIp comment="zisp"
+# Add new rules at the top of the chain
+:do {
+    :local firstRule [/ip firewall filter find chain=input]
+    :if ([:len $firstRule] > 0) do={
+        /ip firewall filter add chain=input action=accept src-address=$trustedIp comment="zisp" place-before=[pick $firstRule 0]
+    } else={
+        /ip firewall filter add chain=input action=accept src-address=$trustedIp comment="zisp"
+    }
+} on-error={
+    /ip firewall filter add chain=input action=accept src-address=$trustedIp comment="zisp"
+}
 
-/ip firewall filter move [find comment="zisp"] destination=1
+:do {
+    :local firstRule [/ip firewall filter find chain=output]
+    :if ([:len $firstRule] > 0) do={
+        /ip firewall filter add chain=output action=accept dst-address=$trustedIp comment="zisp" place-before=[pick $firstRule 0]
+    } else={
+        /ip firewall filter add chain=output action=accept dst-address=$trustedIp comment="zisp"
+    }
+} on-error={
+    /ip firewall filter add chain=output action=accept dst-address=$trustedIp comment="zisp"
+}
 
 :put "-----------------Firewall rules added successfully-----------------"
 
