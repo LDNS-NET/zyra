@@ -2,402 +2,158 @@
 # Generated for router: {{name}}
 # Router ID: {{router_id}}
 
-# Remove disabled OVPN clients
-/interface ovpn-client remove [find disabled=yes]
-
-# Check internet connectivity
-:if ([/ping 8.8.8.8 count=3] = 0) do={
-    :return "No internet connection. Please check your internet connection and try again."
-}
-
-# Set router identity
-/system identity set name="{{name}}"
-:put "-----------------Router identity set to: {{name}}-----------------"
-
-# Print all IP addresses for user to copy
-:put "==================== ROUTER IP ADDRESSES ===================="
-:put "Please copy ONE of these IP addresses and enter it in the system:"
-:local ipCount 0
-:do {
-    :local ipIds [/ip address find]
-    :foreach id in=$ipIds do={
-        :local ipAddr [/ip address get $id address]
-        :if ([:len $ipAddr] > 0) do={
-            :put "  - $ipAddr"
-            :set ipCount ($ipCount + 1)
-        }
-    }
-} on-error={
-    :put "  - (Could not retrieve IP addresses automatically)"
-    :put "  - Please run: /ip address print to see available IPs"
-}
-:if ($ipCount = 0) do={
-    :put "  - (No IP addresses found)"
-    :put "  - Please run: /ip address print to see available IPs"
-}
-:put "=============================================================="
-
-# Remove existing RADIUS server if it exists
-:if ([/radius find address="{{radius_ip}}"] != "") do={
-    /radius remove [find address="{{radius_ip}}"]
-    :put "Previous RADIUS server with the same address removed."
-}
-
 # Configuration variables
 :local username "{{username}}"
 :local password "{{router_password}}"
 :local apiPort "{{api_port}}"
 :local radiussecret "{{radius_secret}}"
 :local radiusip "{{radius_ip}}"
-:local radiusauthport "1812"
-:local radiusacctport "1813"
 :local trustedIp "{{trusted_ip}}"
 
-:global version [system package update get installed-version];
-:for i from=0 to=[:len $version] do={
-    :if ([:pick $version $i] = ".") do={
-        :set version [:pick $version 0 $i]
-    }
+:put "==================== ZiSP MIKROTIK ONBOARDING ===================="
+
+# Check internet connectivity
+:if ([/ping 8.8.8.8 count=3] = 0) do={
+    :put "Warning: No internet connection"
+} else={
+    :put "Internet connectivity: OK"
 }
 
-:put "-----------------Applying ZiSP configuration-----------------"
+# Set router identity
+/system identity set name="{{name}}"
+:put "Router identity: {{name}}"
 
-# Check if hotspot package is installed (check early to configure RADIUS correctly)
-:local hotspotInstalled "no"
+# Display router IP addresses
+:put "==================== ROUTER IP ADDRESSES ===================="
+:do {
+    :local ipIds [/ip address find]
+    :foreach id in=$ipIds do={
+        :local ipAddr [/ip address get $id address]
+        :if ([:len $ipAddr] > 0) do={
+            :put "  - $ipAddr"
+        }
+    }
+} on-error={
+    :put "  - Run: /ip address print to see IPs"
+}
+:put "=============================================================="
+
+# Remove existing RADIUS server
+:do {
+    /radius remove [find address=$radiusip]
+} on-error={}
+
+# Configure RADIUS (try with hotspot, fallback to ppp only)
+:local radiusServices "ppp"
 :do {
     /ip hotspot print
-    :set hotspotInstalled "yes"
-    :put "-----------------Hotspot package detected-----------------"
-} on-error={
-    :put "-----------------Hotspot package not installed-----------------"
-    :put "Hotspot features will be skipped. Router will be configured for PPPoE only."
-    :set hotspotInstalled "no"
-}
-
-# SNMP Configuration
-:if ([/snmp community find name="zisp"] != "") do={
-    /snmp community remove [find name="zisp"]
-    :put "Previous SNMP community with the same name removed."
-}
-
-/snmp community add name="zisp" addresses=$trustedIp read-access=yes write-access=yes
-:put "-----------------SNMP community added successfully-----------------"
-/snmp set enabled=yes trap-community="zisp"
-
-# RADIUS Configuration (conditionally include hotspot service)
-:local radiusServices "ppp"
-:if ($hotspotInstalled = "yes") do={
     :set radiusServices "ppp,hotspot"
-}
+} on-error={}
 :do {
-    /radius add service=$radiusServices address=$radiusip secret=$radiussecret disabled=no timeout=3000ms accounting-port=$radiusacctport authentication-port=$radiusauthport
-    /radius incoming set accept=yes port=1700
-    :put "-----------------RADIUS server added successfully-----------------"
+    /radius add service=$radiusServices address=$radiusip secret=$radiussecret disabled=no timeout=3000ms accounting-port=1813 authentication-port=1812
+    :put "RADIUS server configured"
 } on-error={
-    :put "Warning: Could not add RADIUS server, attempting with PPP only..."
     :do {
-        /radius add service=ppp address=$radiusip secret=$radiussecret disabled=no timeout=3000ms accounting-port=$radiusacctport authentication-port=$radiusauthport
-        /radius incoming set accept=yes port=1700
-        :put "-----------------RADIUS server added successfully (PPP only)-----------------"
+        /radius add service=ppp address=$radiusip secret=$radiussecret disabled=no timeout=3000ms accounting-port=1813 authentication-port=1812
+        :put "RADIUS configured (PPPoE only)"
     } on-error={
-        :put "Error: Failed to add RADIUS server. Please check configuration."
+        :put "Warning: RADIUS configuration failed"
     }
 }
 
-/ppp aaa set use-radius=yes accounting=yes interim-update=1h
+# Configure PPP AAA
+:do {
+    /ppp aaa set use-radius=yes accounting=yes interim-update=1h
+} on-error={}
 
-# Create API user - check if user exists first
+# Create or update API user
 :local userExists [/user find name=$username]
 :if ([:len $userExists] > 0) do={
-    # User exists, try to update it
     :do {
-        /user set [find name=$username] password=$password group=full disabled=no comment="ZiSP User. Do not delete this user."
-        :put "-----------------ZiSP user updated successfully-----------------"
+        /user set [find name=$username] password=$password group=full disabled=no comment="ZiSP API User"
+        :put "API user updated"
     } on-error={
-        # If update fails, try to remove and add (but only if not last full-access user)
-        :local fullAccessUsers [/user find group=full]
-        :if ([:len $fullAccessUsers] > 1) do={
+        :local fullUsers [/user find group=full]
+        :if ([:len $fullUsers] > 1) do={
             /user remove [find name=$username]
-            /user add name=$username password=$password group=full disabled=no comment="ZiSP User. Do not delete this user."
-            :put "-----------------ZiSP user recreated successfully-----------------"
+            /user add name=$username password=$password group=full disabled=no comment="ZiSP API User"
         } else={
-            # Can't remove last full-access user, just update password if possible
-            /user set [find name=$username] password=$password comment="ZiSP User. Do not delete this user."
-            :put "-----------------ZiSP user password updated (could not change group - last full-access user)-----------------"
+            /user set [find name=$username] password=$password comment="ZiSP API User"
         }
+        :put "API user updated"
     }
 } else={
-    # User doesn't exist, create it
-    /user add name=$username password=$password group=full disabled=no comment="ZiSP User. Do not delete this user."
-    :put "-----------------ZiSP user added successfully-----------------"
+    /user add name=$username password=$password group=full disabled=no comment="ZiSP API User"
+    :put "API user created"
 }
 
-# Firewall rules for trusted IP
-# Remove existing rules first
+# Configure firewall rules for trusted IP
 :do {
-    /ip firewall filter remove [find src-address=$trustedIp comment="zisp"]
+    /ip firewall filter remove [find comment="zisp-api"]
 } on-error={}
 :do {
-    /ip firewall filter remove [find dst-address=$trustedIp comment="zisp"]
-} on-error={}
-
-# Add new rules at the top of the chain
-:do {
-    :local firstRule [/ip firewall filter find chain=input]
-    :if ([:len $firstRule] > 0) do={
-        /ip firewall filter add chain=input action=accept src-address=$trustedIp comment="zisp" place-before=[pick $firstRule 0]
+    :local firstIn [/ip firewall filter find chain=input]
+    :local firstOut [/ip firewall filter find chain=output]
+    :if ([:len $firstIn] > 0) do={
+        /ip firewall filter add chain=input action=accept src-address=$trustedIp comment="zisp-api" place-before=[pick $firstIn 0]
     } else={
-        /ip firewall filter add chain=input action=accept src-address=$trustedIp comment="zisp"
+        /ip firewall filter add chain=input action=accept src-address=$trustedIp comment="zisp-api"
     }
-} on-error={
-    /ip firewall filter add chain=input action=accept src-address=$trustedIp comment="zisp"
-}
-
-:do {
-    :local firstRule [/ip firewall filter find chain=output]
-    :if ([:len $firstRule] > 0) do={
-        /ip firewall filter add chain=output action=accept dst-address=$trustedIp comment="zisp" place-before=[pick $firstRule 0]
+    :if ([:len $firstOut] > 0) do={
+        /ip firewall filter add chain=output action=accept dst-address=$trustedIp comment="zisp-api" place-before=[pick $firstOut 0]
     } else={
-        /ip firewall filter add chain=output action=accept dst-address=$trustedIp comment="zisp"
+        /ip firewall filter add chain=output action=accept dst-address=$trustedIp comment="zisp-api"
     }
+    :put "Firewall rules configured"
 } on-error={
-    /ip firewall filter add chain=output action=accept dst-address=$trustedIp comment="zisp"
+    :put "Warning: Firewall configuration failed"
 }
 
-:put "-----------------Firewall rules added successfully-----------------"
-
-# Walled garden configuration (only if hotspot is installed)
-:if ($hotspotInstalled = "yes") do={
-    :put "---------------Configuring hotspot walled garden-----------------"
-    :do {
-        /ip hotspot walled-garden remove [find dst-host="zisp.cloud"]
-    } on-error={}
-    :do {
-        /ip hotspot walled-garden add dst-host="zisp.cloud"
-    } on-error={
-        :put "Warning: Could not add walled-garden rule for zisp.cloud"
-    }
-    :do {
-        /ip hotspot walled-garden remove [find dst-host="ui-avatars.com"]
-    } on-error={}
-    :do {
-        /ip hotspot walled-garden add dst-host="ui-avatars.com"
-    } on-error={
-        :put "Warning: Could not add walled-garden rule for ui-avatars.com"
-    }
-    :do {
-        /ip hotspot walled-garden ip remove [find dst-address=$trustedIp]
-    } on-error={}
-    :do {
-        /ip hotspot walled-garden ip add action=accept disabled=no dst-address=$trustedIp
-    } on-error={
-        :put "Warning: Could not add walled-garden IP rule for trusted IP"
-    }
-    :put "-----------------Walled garden rules added successfully-----------------"
-} else={
-    :put "-----------------Skipping walled garden configuration (hotspot not available)-----------------"
-}
-
-# Reboot scheduler
-/system scheduler remove [find name="Reboot"]
-/system scheduler add name="Reboot" start-time=03:00:00 interval=1d on-event="/system reboot"
-
-:put "-----------------Reboot scheduler added successfully-----------------"
-
-# Disable unnecessary services
-/ip service
-set telnet disabled=yes
-set ftp disabled=yes
-set ssh disabled=yes
-set www-ssl disabled=yes
-set api-ssl disabled=yes
-
-:put "-----------------Disabled unnecessary services-----------------"
-
-# Enable API service on trusted IP
-/ip service set api disabled=no port=$apiPort address=$trustedIp
-
-:put "-----------------API service enabled successfully-----------------"
-
-# Create bridge (remove if exists first)
+# Enable API service
 :do {
-    /interface bridge remove [find name="zisp_hotspot_pppoe_bridge"]
-    :put "Removed existing bridge interface"
-} on-error={}
-/interface bridge add name=zisp_hotspot_pppoe_bridge
-
-# Map an address to the bridge (remove if exists first)
-:do {
-    /ip address remove [find interface="zisp_hotspot_pppoe_bridge" address="10.10.24.1/16"]
-} on-error={}
-/ip address add address=10.10.24.1/16 interface=zisp_hotspot_pppoe_bridge
-
-# Create IP pool for hotspot/PPPoE bridge (remove if exists first)
-:do {
-    /ip pool remove [find name="zisp_hs_pool"]
-} on-error={}
-:do {
-    /ip pool add name=zisp_hs_pool ranges=10.10.24.6-10.10.255.254
-    :put "-----------------IP pool created successfully-----------------"
+    /ip service set api disabled=no port=$apiPort address=$trustedIp
+    :put "API service enabled on port $apiPort"
 } on-error={
-    :put "Warning: Could not create IP pool"
+    :put "Warning: API service configuration failed"
 }
 
-# Create DHCP server (remove if exists first)
-:do {
-    /ip dhcp-server remove [find name="zisp_hs_dhcp"]
-} on-error={}
-:do {
-    /ip dhcp-server add address-pool=zisp_hs_pool disabled=no interface=zisp_hotspot_pppoe_bridge lease-time=00:10:00 name=zisp_hs_dhcp
-    :put "-----------------DHCP server created successfully-----------------"
-} on-error={
-    :put "Warning: Could not create DHCP server"
-}
-
-# Map network to DHCP (remove if exists first)
-:do {
-    /ip dhcp-server network remove [find comment="zisp_hs_network"]
-} on-error={}
-:do {
-    /ip dhcp-server network add address=10.10.0.0/16 comment="zisp_hs_network" gateway=10.10.0.1
-    :put "-----------------DHCP network configured successfully-----------------"
-} on-error={
-    :put "Warning: Could not configure DHCP network"
-}
-
-# Add hotspot server profile (only if hotspot is installed)
-:if ($hotspotInstalled = "yes") do={
-    :do {
-        /ip hotspot profile remove [find name="zisp_hs_prof"]
-    } on-error={}
-    :do {
-        /ip hotspot profile add hotspot-address=10.10.0.1 login-by=cookie,http-chap,http-pap,mac-cookie name=zisp_hs_prof use-radius=yes radius-interim-update=00:10:00
-        :put "-----------------Hotspot profile added successfully-----------------"
-    } on-error={
-        :put "Warning: Could not add hotspot profile"
-    }
-
-    # Create hotspot server (remove if exists first)
-    :do {
-        /ip hotspot remove [find name="zisp_hotspot_pppoe_bridge"]
-    } on-error={}
-    :do {
-        /ip hotspot add address-pool=zisp_hs_pool addresses-per-mac=1 disabled=no idle-timeout=1m interface=zisp_hotspot_pppoe_bridge name=zisp_hotspot_pppoe_bridge profile=zisp_hs_prof
-        :put "-----------------Hotspot server added successfully-----------------"
-    } on-error={
-        :put "Warning: Could not add hotspot server"
-    }
-} else={
-    :put "-----------------Skipping hotspot server configuration (hotspot not available)-----------------"
-}
-
-# Masquerade hotspot/PPPoE bridge network
-:do {
-    /ip firewall nat remove [find comment="masquerade hotspot network"]
-} on-error={}
-:do {
-    /ip firewall nat add action=masquerade chain=srcnat comment="masquerade hotspot network" src-address=10.10.0.0/16
-    :put "-----------------NAT masquerade rule added successfully-----------------"
-} on-error={
-    :put "Warning: Could not add NAT masquerade rule"
-}
-
-# Disable default fastrack to allow for queue, session and quota limit enforcement
-/ip firewall filter disable [find where comment="defconf: fasttrack"];
-
-# Create pool for PPPoE (remove if exists first)
-:do {
-    /ip pool remove [find name="pppoe_pool"]
-} on-error={}
-/ip pool add name=pppoe_pool range=192.25.0.2-192.25.255.254
-
-# Create profile for PPPoE service (remove if exists first)
-:do {
-    /ppp profile remove [find name="Z-INTERNET"]
-} on-error={}
-/ppp profile add dns-server=8.8.8.8,8.8.4.4 local-address=pppoe_pool name=Z-INTERNET remote-address=pppoe_pool
-
-# Create PPPoE server (remove if exists first)
-:do {
-    /interface pppoe-server server remove [find interface="zisp_hotspot_pppoe_bridge"]
-} on-error={}
-/interface pppoe-server server add authentication=pap default-profile=default disabled=no interface=zisp_hotspot_pppoe_bridge one-session-per-host=yes keepalive-timeout=10
-
-# Allow auth over zisp radius
-/ppp aaa set use-radius=yes interim-update=00:10:00;
-
-# Masquerade PPPoE network
-/ip firewall nat add action=masquerade chain=srcnat comment="masquerade pppoe network" out-interface=ether1;
-
-# Mangle rules to block anti-sharing and hide router IP
-/ip firewall mangle
-add action=change-ttl chain=postrouting comment=anti-sharing-connection \
-    new-ttl=set:1 out-interface=zisp_hotspot_pppoe_bridge passthrough=yes
-add action=change-ttl chain=prerouting comment=hide-router-ip-address \
-    new-ttl=increment:2 passthrough=yes
-
-# Set timezone
-/system clock set time-zone-name=Africa/Nairobi
-
-:put "-----------------Added timezone successfully-----------------"
-
-:put "-----------------ZiSP configuration applied successfully-----------------"
-
-# Phone-home: Notify server that router is online
+# Phone-home notification
 :if ([:len "{{sync_url}}"] > 0) do={
-    :put "-----------------Sending phone-home notification-----------------"
     :local syncUrl "{{sync_url}}"
-    
-    # Get router's public IP address
+    :put "Sending phone-home notification..."
     :local routerIp ""
-    :local ipList [/ip address get [find] address]
-    :foreach ip in=$ipList do={
-        :local ipAddr [:pick $ip 0 [:find $ip "/"]]
-        # Use first non-loopback IP
-        :if ([:pick $ipAddr 0 3] != "127" && [:len $routerIp] = 0) do={
-            :set routerIp $ipAddr
-        }
-    }
-    
-    # If no IP found, try to get from interface
-    :if ([:len $routerIp] = 0) do={
-        :local interfaces [/interface get [find] name]
-        :foreach iface in=$interfaces do={
-            :local ifIp [/ip address get [find interface=$iface] address]
-            :if ([:len $ifIp] > 0) do={
-                :set routerIp [:pick $ifIp 0 [:find $ifIp "/"]]
+    :do {
+        :local ipIds [/ip address find]
+        :foreach id in=$ipIds do={
+            :local ipAddr [/ip address get $id address]
+            :local ipOnly [:pick $ipAddr 0 [:find $ipAddr "/"]]
+            :if ([:pick $ipOnly 0 3] != "127" && [:len $routerIp] = 0) do={
+                :set routerIp $ipOnly
             }
         }
-    }
-    
+    } on-error={}
     :delay 2s
-    
-    # Send phone-home with router IP
-    :local postData ""
-    :if ([:len $routerIp] > 0) do={
-        :set postData "ip_address=$routerIp"
-    }
-    
-    # Attempt phone-home (simplified - just try to send, don't check response details)
     :do {
+        :local postData ""
+        :if ([:len $routerIp] > 0) do={
+            :set postData "ip_address=$routerIp"
+        }
         /tool fetch url=$syncUrl http-method=post http-data=$postData
-        :put "Phone-home request sent successfully"
+        :put "Phone-home successful"
         :if ([:len $routerIp] > 0) do={
-            :put "Router IP sent: $routerIp"
+            :put "Router IP: $routerIp"
         }
-        :put "Router should be registered with server"
     } on-error={
-        :put "Phone-home request failed - this is not critical"
-        :put "You can manually update the router IP in the system"
+        :put "Phone-home failed (non-critical)"
         :if ([:len $routerIp] > 0) do={
-            :put "Router IP detected: $routerIp (please enter this in the system manually)"
+            :put "Router IP: $routerIp (enter manually)"
         }
-        :put "Sync URL was: $syncUrl"
     }
 } else={
-    :put "-----------------No sync URL configured, skipping phone-home-----------------"
+    :put "No sync URL configured"
 }
 
-:put "==================== CONFIGURATION COMPLETE ===================="
-:put "Router is now configured and ready for use."
-:put "Please copy the IP address shown above and enter it in the system."
+:put "==================== ONBOARDING COMPLETE ===================="
+:put "Router connected to ZiSP system"
+:put "API User: $username | Port: $apiPort | Trusted IP: $trustedIp"
+:put "=============================================================="
