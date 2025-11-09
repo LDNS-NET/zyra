@@ -17,9 +17,23 @@
 # Print all IP addresses for user to copy
 :put "==================== ROUTER IP ADDRESSES ===================="
 :put "Please copy ONE of these IP addresses and enter it in the system:"
-:local ipList [/ip address get [find] address]
-:foreach ip in=$ipList do={
-    :put "  - $ip"
+:local ipCount 0
+:do {
+    :local ipIds [/ip address find]
+    :foreach id in=$ipIds do={
+        :local ipAddr [/ip address get $id address]
+        :if ([:len $ipAddr] > 0) do={
+            :put "  - $ipAddr"
+            :set ipCount ($ipCount + 1)
+        }
+    }
+} on-error={
+    :put "  - (Could not retrieve IP addresses automatically)"
+    :put "  - Please run: /ip address print to see available IPs"
+}
+:if ($ipCount = 0) do={
+    :put "  - (No IP addresses found)"
+    :put "  - Please run: /ip address print to see available IPs"
 }
 :put "=============================================================="
 
