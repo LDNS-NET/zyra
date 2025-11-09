@@ -169,26 +169,48 @@ set api-ssl disabled=yes
 
 :put "-----------------API service enabled successfully-----------------"
 
-# Create bridge
-/interface bridge add name=zisp_hotspot_pppoe_bridge;
+# Create bridge (remove if exists first)
+:do {
+    /interface bridge remove [find name="zisp_hotspot_pppoe_bridge"]
+    :put "Removed existing bridge interface"
+} on-error={}
+/interface bridge add name=zisp_hotspot_pppoe_bridge
 
-# Map an address to the bridge
-/ip address add address=10.10.24.1/16 interface=zisp_hotspot_pppoe_bridge;
+# Map an address to the bridge (remove if exists first)
+:do {
+    /ip address remove [find interface="zisp_hotspot_pppoe_bridge" address="10.10.24.1/16"]
+} on-error={}
+/ip address add address=10.10.24.1/16 interface=zisp_hotspot_pppoe_bridge
 
-# Create IP pool
-/ip pool add name=zisp_hs_pool ranges=10.10.24.6-10.10.255.254;
+# Create IP pool (remove if exists first)
+:do {
+    /ip pool remove [find name="zisp_hs_pool"]
+} on-error={}
+/ip pool add name=zisp_hs_pool ranges=10.10.24.6-10.10.255.254
 
-# Create DHCP server
-/ip dhcp-server add address-pool=zisp_hs_pool disabled=no interface=zisp_hotspot_pppoe_bridge lease-time=00:10:00 name=zisp_hs_dhcp;
+# Create DHCP server (remove if exists first)
+:do {
+    /ip dhcp-server remove [find name="zisp_hs_dhcp"]
+} on-error={}
+/ip dhcp-server add address-pool=zisp_hs_pool disabled=no interface=zisp_hotspot_pppoe_bridge lease-time=00:10:00 name=zisp_hs_dhcp
 
-# Map network to DHCP
-/ip dhcp-server network add address=10.10.0.0/16 comment="zisp_hs_network" gateway=10.10.0.1;
+# Map network to DHCP (remove if exists first)
+:do {
+    /ip dhcp-server network remove [find comment="zisp_hs_network"]
+} on-error={}
+/ip dhcp-server network add address=10.10.0.0/16 comment="zisp_hs_network" gateway=10.10.0.1
 
-# Add hotspot server profile
-/ip hotspot profile add hotspot-address=10.10.0.1 login-by=cookie,http-chap,http-pap,mac-cookie name=zisp_hs_prof use-radius=yes radius-interim-update=00:10:00;
+# Add hotspot server profile (remove if exists first)
+:do {
+    /ip hotspot profile remove [find name="zisp_hs_prof"]
+} on-error={}
+/ip hotspot profile add hotspot-address=10.10.0.1 login-by=cookie,http-chap,http-pap,mac-cookie name=zisp_hs_prof use-radius=yes radius-interim-update=00:10:00
 
-# Create hotspot server
-/ip hotspot add address-pool=zisp_hs_pool addresses-per-mac=1 disabled=no idle-timeout=1m interface=zisp_hotspot_pppoe_bridge name=zisp_hotspot_pppoe_bridge profile=zisp_hs_prof;
+# Create hotspot server (remove if exists first)
+:do {
+    /ip hotspot remove [find name="zisp_hotspot_pppoe_bridge"]
+} on-error={}
+/ip hotspot add address-pool=zisp_hs_pool addresses-per-mac=1 disabled=no idle-timeout=1m interface=zisp_hotspot_pppoe_bridge name=zisp_hotspot_pppoe_bridge profile=zisp_hs_prof
 
 # Masquerade hotspot network
 /ip firewall nat add action=masquerade chain=srcnat comment="masquerade hotspot network" src-address=10.10.0.0/16;
@@ -196,14 +218,23 @@ set api-ssl disabled=yes
 # Disable default fastrack to allow for queue, session and quota limit enforcement
 /ip firewall filter disable [find where comment="defconf: fasttrack"];
 
-# Create pool for PPPoE
-/ip pool add name=pppoe_pool range=192.25.0.2-192.25.255.254;
+# Create pool for PPPoE (remove if exists first)
+:do {
+    /ip pool remove [find name="pppoe_pool"]
+} on-error={}
+/ip pool add name=pppoe_pool range=192.25.0.2-192.25.255.254
 
-# Create profile for PPPoE service
-/ppp profile add dns-server=8.8.8.8,8.8.4.4 local-address=pppoe_pool name=Z-INTERNET remote-address=pppoe_pool;
+# Create profile for PPPoE service (remove if exists first)
+:do {
+    /ppp profile remove [find name="Z-INTERNET"]
+} on-error={}
+/ppp profile add dns-server=8.8.8.8,8.8.4.4 local-address=pppoe_pool name=Z-INTERNET remote-address=pppoe_pool
 
-# Create PPPoE server
-/interface pppoe-server server add authentication=pap default-profile=default disabled=no interface=zisp_hotspot_pppoe_bridge one-session-per-host=yes keepalive-timeout=10;
+# Create PPPoE server (remove if exists first)
+:do {
+    /interface pppoe-server server remove [find interface="zisp_hotspot_pppoe_bridge"]
+} on-error={}
+/interface pppoe-server server add authentication=pap default-profile=default disabled=no interface=zisp_hotspot_pppoe_bridge one-session-per-host=yes keepalive-timeout=10
 
 # Allow auth over zisp radius
 /ppp aaa set use-radius=yes interim-update=00:10:00;
