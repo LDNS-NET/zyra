@@ -65,10 +65,31 @@
 
 /ppp aaa set use-radius=yes accounting=yes interim-update=1h
 
-# Create API user
-/user remove [find name=$username]
-/user add name=$username password=$password group=full disabled=no comment="ZiSP User. Do not delete this user."
-:put "-----------------ZiSP user added successfully-----------------"
+# Create API user - check if user exists first
+:local userExists [/user find name=$username]
+:if ([:len $userExists] > 0) do={
+    # User exists, try to update it
+    :do {
+        /user set [find name=$username] password=$password group=full disabled=no comment="ZiSP User. Do not delete this user."
+        :put "-----------------ZiSP user updated successfully-----------------"
+    } on-error={
+        # If update fails, try to remove and add (but only if not last full-access user)
+        :local fullAccessUsers [/user find group=full]
+        :if ([:len $fullAccessUsers] > 1) do={
+            /user remove [find name=$username]
+            /user add name=$username password=$password group=full disabled=no comment="ZiSP User. Do not delete this user."
+            :put "-----------------ZiSP user recreated successfully-----------------"
+        } else={
+            # Can't remove last full-access user, just update password if possible
+            /user set [find name=$username] password=$password comment="ZiSP User. Do not delete this user."
+            :put "-----------------ZiSP user password updated (could not change group - last full-access user)-----------------"
+        }
+    }
+} else={
+    # User doesn't exist, create it
+    /user add name=$username password=$password group=full disabled=no comment="ZiSP User. Do not delete this user."
+    :put "-----------------ZiSP user added successfully-----------------"
+}
 
 # Firewall rules for trusted IP
 /ip firewall filter remove [find src-address=$trustedIp]
