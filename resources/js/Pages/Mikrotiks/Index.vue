@@ -20,10 +20,16 @@ import {
     Download,
     Activity,
     MoreHorizontal,
+    ExternalLink,
+    TestTube,
 } from 'lucide-vue-next';
 
 const props = defineProps({
     routers: Array,
+    openvpnProfiles: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const showAddModal = ref(false);
@@ -92,10 +98,9 @@ async function submitForm() {
             // closeModal() removed
         },
         onError: (errors) => {
-            alert(
-                'Error adding router: ' +
-                    Object.values(errors).flat().join(', '),
-            );
+            const errorMessage = 'Error adding router: ' + Object.values(errors).flat().join(', ');
+            formError.value = errorMessage;
+            window.toast?.error(errorMessage) || console.error(errorMessage);
         },
     });
 }
@@ -172,26 +177,30 @@ async function pingRouter(router) {
 }
 
 
-function testRouterConnection(router) {
+async function testRouterConnection(router) {
     testing.value[router.id] = true;
     formError.value = '';
-    fetch(route('mikrotiks.testConnection', router.id))
-        .then(async (res) => {
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.message || 'Unknown error');
-            }
-            return res.json();
-        })
-        .then((data) => {
-            alert(data.message);
-        })
-        .catch((err) => {
-            formError.value = 'Error testing connection: ' + err.message;
-        })
-        .finally(() => {
-            testing.value[router.id] = false;
-        });
+
+    try {
+        const response = await fetch(route('mikrotiks.testConnection', router.id));
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to test connection.');
+        }
+
+        // Update router status in the UI
+        router.status = data.status;
+        router.last_seen_at = data.last_seen_at;
+
+        // Use toast notification if available, otherwise console
+        window.toast?.success(data.message) || console.log(data.message);
+    } catch (err) {
+        formError.value = `Error testing connection: ${err.message}`;
+        window.toast?.error(formError.value) || console.error(formError.value);
+    } finally {
+        testing.value[router.id] = false;
+    }
 }
 
 function showRemote(router) {
@@ -425,11 +434,44 @@ function formatBytes(bytes) {
                                                                     router.id
                                                                 ]
                                                             "
-                                                            title="Ping"
+                                                            title="Ping Router"
                                                             class="rounded p-2 hover:bg-gray-100"
                                                         >
                                                             <Activity
                                                                 class="h-5 w-5 text-green-600"
+                                                            />
+                                                        </button>
+                                                        <button
+                                                            @click="
+                                                                testRouterConnection(
+                                                                    router,
+                                                                );
+                                                                closeAllActions();
+                                                            "
+                                                            :disabled="
+                                                                testing[
+                                                                    router.id
+                                                                ]
+                                                            "
+                                                            title="Test Connection"
+                                                            class="rounded p-2 hover:bg-gray-100"
+                                                        >
+                                                            <TestTube
+                                                                class="h-5 w-5 text-blue-600"
+                                                            />
+                                                        </button>
+                                                        <button
+                                                            @click="
+                                                                showRemote(
+                                                                    router,
+                                                                );
+                                                                closeAllActions();
+                                                            "
+                                                            title="Remote Management"
+                                                            class="rounded p-2 hover:bg-gray-100"
+                                                        >
+                                                            <ExternalLink
+                                                                class="h-5 w-5 text-purple-600"
                                                             />
                                                         </button>
                                                         <button
@@ -633,8 +675,7 @@ function formatBytes(bytes) {
                             >
                                 <option :value="null">None</option>
                                 <option
-                                    v-for="profile in $page.props
-                                        .openvpnProfiles || []"
+                                    v-for="profile in openvpnProfiles"
                                     :key="profile.id"
                                     :value="profile.id"
                                 >

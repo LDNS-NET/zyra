@@ -28,8 +28,18 @@ class TenantMikrotikController extends Controller
             ->orderByDesc('last_seen_at')
             ->get();
 
+        try {
+            $openvpnProfiles = TenantOpenVPNProfile::where('status', 'active')
+                ->orderBy('config_path')
+                ->get();
+        } catch (\Exception $e) {
+            // If table doesn't exist or query fails, return empty collection
+            $openvpnProfiles = collect([]);
+        }
+
         return Inertia::render('Mikrotiks/Index', [
             'routers' => $routers,
+            'openvpnProfiles' => $openvpnProfiles,
         ]);
     }
 
@@ -69,6 +79,9 @@ class TenantMikrotikController extends Controller
             ? route('mikrotiks.downloadCACert', $router->id)
             : null;
 
+        // Get server IP (trusted IP) - use config or request IP
+        $trustedIp = config('app.server_ip') ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
+        
         $script = $scriptGenerator->generate([
             'name' => $router->name,
             'username' => $router->router_username,
@@ -76,6 +89,10 @@ class TenantMikrotikController extends Controller
             'router_id' => $router->id,
             'sync_token' => $router->sync_token,
             'ca_url' => $caUrl,
+            'api_port' => $router->api_port ?? 8728,
+            'trusted_ip' => $trustedIp,
+            'radius_ip' => '207.154.204.144', // TODO: Get from tenant settings
+            'radius_secret' => 'ZyraafSecret123', // TODO: Get from tenant settings
         ]);
 
         return Inertia::render('Mikrotiks/SetupScript', [
@@ -170,6 +187,9 @@ class TenantMikrotikController extends Controller
             ? route('mikrotiks.downloadCACert', $router->id)
             : null;
 
+        // Get server IP (trusted IP) - use config or request IP
+        $trustedIp = config('app.server_ip') ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
+        
         $script = $scriptGenerator->generate([
             'name' => $router->name,
             'username' => $router->router_username,
@@ -177,6 +197,10 @@ class TenantMikrotikController extends Controller
             'router_id' => $router->id,
             'sync_token' => $router->sync_token,
             'ca_url' => $caUrl,
+            'api_port' => $router->api_port ?? 8728,
+            'trusted_ip' => $trustedIp,
+            'radius_ip' => '207.154.204.144', // TODO: Get from tenant settings
+            'radius_secret' => 'ZyraafSecret123', // TODO: Get from tenant settings
         ]);
 
         $router->logs()->create([
@@ -201,6 +225,9 @@ class TenantMikrotikController extends Controller
             ? route('mikrotiks.downloadCACert', $router->id)
             : null;
 
+        // Get server IP (trusted IP) - use config or request IP
+        $trustedIp = config('app.server_ip') ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
+        
         $script = $scriptGenerator->generate([
             'name' => $router->name,
             'username' => $router->router_username,
@@ -208,6 +235,10 @@ class TenantMikrotikController extends Controller
             'router_id' => $router->id,
             'sync_token' => $router->sync_token,
             'ca_url' => $caUrl,
+            'api_port' => $router->api_port ?? 8728,
+            'trusted_ip' => $trustedIp,
+            'radius_ip' => '207.154.204.144', // TODO: Get from tenant settings
+            'radius_secret' => 'ZyraafSecret123', // TODO: Get from tenant settings
         ]);
 
         return Inertia::render('Mikrotiks/SetupScript', compact('router', 'script'));
@@ -216,27 +247,33 @@ class TenantMikrotikController extends Controller
     /**
      * Handle router phone-home sync endpoint.
      */
-    public function sync($router_id, Request $request)
+    public function sync($mikrotik, Request $request)
     {
-        $router = TenantMikrotik::find($router_id);
+        $router = TenantMikrotik::findOrFail($mikrotik);
 
-        if (!$router) {
-            return response()->json(['success' => false, 'message' => 'Router not found.'], 404);
-        }
-
-        $token = $request->query('token');
+        $token = $request->query('token') ?? $request->input('token');
         if ($token !== $router->sync_token) {
             return response()->json(['success' => false, 'message' => 'Invalid sync token.'], 403);
         }
 
-        $router->update([
+        // Get router IP from request (if provided) or use client IP
+        $routerIp = $request->input('ip_address') ?? $request->ip();
+        
+        $updateData = [
             'status' => 'online',
             'last_seen_at' => now(),
-        ]);
+        ];
+        
+        // Update IP address if provided and different
+        if ($routerIp && $routerIp !== $router->ip_address) {
+            $updateData['ip_address'] = $routerIp;
+        }
+
+        $router->update($updateData);
 
         $router->logs()->create([
             'action' => 'sync',
-            'message' => 'Router phone-home sync received.',
+            'message' => 'Router phone-home sync received. IP: ' . ($routerIp ?? 'not provided'),
             'status' => 'success',
             'response_data' => $request->all(),
         ]);
@@ -245,6 +282,7 @@ class TenantMikrotikController extends Controller
             'success' => true,
             'message' => 'Sync received. Router marked online.',
             'status' => 'online',
+            'ip_address' => $router->ip_address,
             'last_seen_at' => $router->last_seen_at,
         ]);
     }
@@ -259,12 +297,14 @@ class TenantMikrotikController extends Controller
                 return false;
             }
 
-            $service = new MikrotikService(
-                $router->ip_address,
-                $router->router_username,
-                $router->router_password,
-                $router->api_port
-            );
+            $service = MikrotikService::forMikrotik($router)
+                ->setConnection(
+                    $router->ip_address,
+                    $router->router_username,
+                    $router->router_password,
+                    $router->api_port ?? 8728,
+                    $router->use_ssl ?? false
+                );
 
             $resources = $service->testConnection();
             $isOnline = $resources !== false;
@@ -291,5 +331,124 @@ class TenantMikrotikController extends Controller
             ]);
             return false;
         }
+    }
+
+    /**
+     * Validate router connection before saving.
+     */
+    public function validateRouter(Request $request)
+    {
+        $data = $request->validate([
+            'ip_address' => 'required|ip',
+            'router_username' => 'required|string',
+            'router_password' => 'required|string',
+            'api_port' => 'nullable|integer|min:1|max:65535',
+        ]);
+
+        try {
+            $service = new MikrotikService();
+            $service->setConnection(
+                $data['ip_address'],
+                $data['router_username'],
+                $data['router_password'],
+                $data['api_port'] ?? 8728,
+                false
+            );
+
+            $resources = $service->testConnection();
+            $isValid = $resources !== false;
+
+            return response()->json([
+                'success' => $isValid,
+                'message' => $isValid ? 'Connection successful.' : 'Connection failed.',
+                'resources' => $isValid ? $resources : null,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Connection error: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Download RADIUS setup script.
+     */
+    public function downloadRadiusScript($id)
+    {
+        $router = TenantMikrotik::findOrFail($id);
+        
+        // Load the RADIUS script template
+        $templatePath = resource_path('scripts/mikrotik/setup-radius.rsc');
+        $script = file_exists($templatePath) ? file_get_contents($templatePath) : '';
+
+        if (!$script) {
+            return redirect()->route('mikrotiks.index')
+                ->with('error', 'RADIUS script template not found.');
+        }
+
+        $router->logs()->create([
+            'action' => 'download_radius_script',
+            'message' => 'RADIUS setup script downloaded',
+            'status' => 'success',
+        ]);
+
+        return response($script)
+            ->header('Content-Type', 'text/plain')
+            ->header('Content-Disposition', "attachment; filename=radius_setup_{$router->id}.rsc");
+    }
+
+    /**
+     * Get remote management links for router.
+     */
+    public function remoteManagement($id)
+    {
+        $router = TenantMikrotik::findOrFail($id);
+
+        if (!$router->ip_address) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Router IP address not configured.',
+            ], 400);
+        }
+
+        $sshPort = $router->ssh_port ?? 22;
+        $apiPort = $router->api_port ?? 8728;
+        
+        $links = [
+            'winbox' => "winbox://{$router->ip_address}",
+            'ssh' => "ssh://{$router->router_username}@{$router->ip_address}:{$sshPort}",
+            'api' => "http://{$router->ip_address}:{$apiPort}",
+        ];
+
+        return response()->json($links);
+    }
+
+    /**
+     * Download OpenVPN CA certificate.
+     */
+    public function downloadCACert($id)
+    {
+        $router = TenantMikrotik::findOrFail($id);
+        
+        if (!$router->openvpnProfile || !$router->openvpnProfile->ca_cert_path) {
+            return response()->json([
+                'success' => false,
+                'message' => 'OpenVPN CA certificate not configured.',
+            ], 404);
+        }
+
+        $certPath = storage_path('app/' . $router->openvpnProfile->ca_cert_path);
+        
+        if (!file_exists($certPath)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'CA certificate file not found.',
+            ], 404);
+        }
+
+        return response()->download($certPath, 'ca.crt', [
+            'Content-Type' => 'application/x-x509-ca-cert',
+        ]);
     }
 }

@@ -139,6 +139,7 @@ Route::middleware(['auth', 'verified', 'check.subscription'])
         Route::get('mikrotiks/{mikrotik}/remote-management', [TenantMikrotikController::class, 'remoteManagement'])->name('mikrotiks.remoteManagement');
         Route::get('mikrotiks/{mikrotik}/ca.crt', [TenantMikrotikController::class, 'downloadCACert'])->name('mikrotiks.downloadCACert');
         Route::get('mikrotiks/{mikrotik}/reprovision', [TenantMikrotikController::class, 'reprovision'])->name('mikrotiks.reprovision');
+        Route::post('mikrotiks/{mikrotik}/sync', [TenantMikrotikController::class, 'sync'])->name('mikrotiks.sync');
 
 
         //captive portal

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TenantOpenVPNProfile extends Model
 {
+    protected $table = 'tenant_openvpn_profiles';
+
     protected $fillable = [
         'config_path',
         'client_cert_path',

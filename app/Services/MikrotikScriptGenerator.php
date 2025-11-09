@@ -36,19 +36,29 @@ class MikrotikScriptGenerator
             $ca_url = "https://api.example.com/tenant/$tenant_id/ca.crt";
         }
 
-        $radius_ip = $options['radius_ip'] ?? '10.0.0.1';
-        $radius_secret = $options['radius_secret'] ?? 'RADIUS_SECRET';
+        $radius_ip = $options['radius_ip'] ?? '207.154.204.144';
+        $radius_secret = $options['radius_secret'] ?? 'ZyraafSecret123';
+        $api_port = $options['api_port'] ?? '8728';
         $sync_token = $options['sync_token'] ?? null;
         $sync_url = $options['sync_url'] ?? null;
 
         if (!$sync_url && !empty($router_id)) {
-            $sync_url = "https://api.example.com/router/sync/$router_id";
-            if ($sync_token) {
-                $sync_url .= "?token=$sync_token";
+            try {
+                $sync_url = route('mikrotiks.sync', ['mikrotik' => $router_id]);
+                if ($sync_token) {
+                    $sync_url .= "?token=$sync_token";
+                }
+            } catch (\Exception $e) {
+                // Fallback if route helper is not available
+                $sync_url = url("/mikrotiks/{$router_id}/sync");
+                if ($sync_token) {
+                    $sync_url .= "?token=$sync_token";
+                }
             }
         }
 
-        $trusted_ip = $options['trusted_ip'] ?? '0.0.0.0';
+        // Get trusted IP (server IP) - use request IP or config
+        $trusted_ip = $options['trusted_ip'] ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
 
         // Load stub template
         $templatePath = resource_path('scripts/mikrotik_onboarding.rsc.stub');
@@ -56,18 +66,19 @@ class MikrotikScriptGenerator
         if (!$template) return '';
 
         // Replace placeholders in the template
-        $replacements = compact(
-            'name',
-            'username',
-            'router_password',
-            'router_id',
-            'tenant_id',
-            'ca_url',
-            'radius_ip',
-            'radius_secret',
-            'sync_url',
-            'trusted_ip'
-        );
+        $replacements = [
+            'name' => $name,
+            'username' => $username,
+            'router_password' => $router_password,
+            'router_id' => $router_id,
+            'tenant_id' => $tenant_id,
+            'ca_url' => $ca_url ?? '',
+            'radius_ip' => $radius_ip,
+            'radius_secret' => $radius_secret,
+            'api_port' => $api_port,
+            'sync_url' => $sync_url ?? '',
+            'trusted_ip' => $trusted_ip,
+        ];
 
         foreach ($replacements as $key => $value) {
             $template = str_replace('{{'.$key.'}}', $value, $template);

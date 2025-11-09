@@ -11,11 +11,26 @@ class MikrotikService
     protected $mikrotik;
     protected $client;
     protected $connection;
+    protected $host;
+    protected $username;
+    protected $password;
+    protected $port;
 
     /**
      * Create a new MikroTik service instance.
      *
      * @param TenantMikrotik|null $mikrotik
+     */
+    public function __construct(TenantMikrotik $mikrotik = null)
+    {
+        $this->mikrotik = $mikrotik;
+    }
+
+    /**
+     * Create a new MikroTik service instance for a specific router.
+     *
+     * @param TenantMikrotik $mikrotik
+     * @return self
      */
     public static function forMikrotik(TenantMikrotik $mikrotik): self
     {
@@ -27,6 +42,11 @@ class MikrotikService
      */
     public function setConnection($host, $username, $password, $port = 8728, $useSsl = false)
     {
+        $this->host = $host;
+        $this->username = $username;
+        $this->password = $password;
+        $this->port = $port;
+        
         $this->connection = [
             'host' => $host,
             'user' => $username,
@@ -151,11 +171,14 @@ class MikrotikService
     {
         if (!$this->client) {
             if (!$this->connection) {
+                if (!$this->mikrotik) {
+                    throw new Exception('No Mikrotik model or connection configured.');
+                }
                 $this->connection = [
                     'host' => $this->mikrotik->ip_address,
                     'user' => $this->mikrotik->router_username,
                     'pass' => $this->mikrotik->router_password,
-                    'port' => $this->mikrotik->api_port,
+                    'port' => $this->mikrotik->api_port ?? 8728,
                     'ssl' => $this->mikrotik->use_ssl ?? false,
                     'timeout' => 8,
                     'attempts' => 1,
@@ -198,13 +221,7 @@ class MikrotikService
     public function createUser(string $type, array $data): bool
     {
         try {
-            $config = [
-                'host' => $this->host,
-                'user' => $this->username,
-                'pass' => $this->password,
-                'port' => $this->port,
-            ];
-            $client = new \RouterOS\Client($config);
+            $client = $this->getClient();
             $response = null;
             if ($type === 'pppoe') {
                 $response = $client->query('/ppp/secret/add', [
@@ -242,13 +259,7 @@ class MikrotikService
     public function updateUser(string $type, array $data): bool
     {
         try {
-            $config = [
-                'host' => $this->host,
-                'user' => $this->username,
-                'pass' => $this->password,
-                'port' => $this->port,
-            ];
-            $client = new \RouterOS\Client($config);
+            $client = $this->getClient();
             if ($type === 'pppoe') {
                 $client->query('/ppp/secret/set', [
                     '.id' => $data['id'], // Mikrotik internal ID
@@ -281,13 +292,7 @@ class MikrotikService
     public function deleteUser(string $type, string $id): bool
     {
         try {
-            $config = [
-                'host' => $this->host,
-                'user' => $this->username,
-                'pass' => $this->password,
-                'port' => $this->port,
-            ];
-            $client = new \RouterOS\Client($config);
+            $client = $this->getClient();
             if ($type === 'pppoe') {
                 $client->query('/ppp/secret/remove', ['.id' => $id])->read();
             } elseif ($type === 'hotspot') {
@@ -312,13 +317,7 @@ class MikrotikService
     public function assignPackage(string $type, array $data): bool
     {
         try {
-            $config = [
-                'host' => $this->host,
-                'user' => $this->username,
-                'pass' => $this->password,
-                'port' => $this->port,
-            ];
-            $client = new \RouterOS\Client($config);
+            $client = $this->getClient();
             if ($type === 'pppoe') {
                 $client->query('/ppp/secret/set', [
                     '.id' => $data['id'],
@@ -354,13 +353,7 @@ class MikrotikService
     public function updateProfileOrQueue(string $type, array $data): bool
     {
         try {
-            $config = [
-                'host' => $this->host,
-                'user' => $this->username,
-                'pass' => $this->password,
-                'port' => $this->port,
-            ];
-            $client = new \RouterOS\Client($config);
+            $client = $this->getClient();
             if ($type === 'pppoe') {
                 $client->query('/ppp/secret/set', [
                     '.id' => $data['id'],
@@ -394,13 +387,7 @@ class MikrotikService
     public function getOnlineUsers(): array
     {
         try {
-            $config = [
-                'host' => $this->host,
-                'user' => $this->username,
-                'pass' => $this->password,
-                'port' => $this->port,
-            ];
-            $client = new \RouterOS\Client($config);
+            $client = $this->getClient();
             $users = [];
             // Hotspot users
             $hotspot = $client->query('/ip/hotspot/active')->read();
@@ -457,13 +444,7 @@ class MikrotikService
     public function disconnectUser(string $type, string $id): bool
     {
         try {
-            $config = [
-                'host' => $this->host,
-                'user' => $this->username,
-                'pass' => $this->password,
-                'port' => $this->port,
-            ];
-            $client = new \RouterOS\Client($config);
+            $client = $this->getClient();
             if ($type === 'pppoe') {
                 $client->query('/ppp/active/remove', ['.id' => $id])->read();
             } elseif ($type === 'hotspot') {
@@ -487,13 +468,7 @@ class MikrotikService
     public function suspendUser(string $type, string $id, string $suspendedProfile = 'suspended'): bool
     {
         try {
-            $config = [
-                'host' => $this->host,
-                'user' => $this->username,
-                'pass' => $this->password,
-                'port' => $this->port,
-            ];
-            $client = new \RouterOS\Client($config);
+            $client = $this->getClient();
             if ($type === 'pppoe') {
                 $client->query('/ppp/secret/set', [
                     '.id' => $id,
@@ -523,13 +498,7 @@ class MikrotikService
     public function unsuspendUser(string $type, string $id, string $activeProfile = 'default'): bool
     {
         try {
-            $config = [
-                'host' => $this->host,
-                'user' => $this->username,
-                'pass' => $this->password,
-                'port' => $this->port,
-            ];
-            $client = new \RouterOS\Client($config);
+            $client = $this->getClient();
             if ($type === 'pppoe') {
                 $client->query('/ppp/secret/set', [
                     '.id' => $id,
