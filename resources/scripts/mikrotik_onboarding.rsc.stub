@@ -246,24 +246,53 @@ add action=change-ttl chain=prerouting comment=hide-router-ip-address \
         :set postData "ip_address=$routerIp"
     }
     
-    :local syncResult [/tool fetch url=$syncUrl http-method=post http-data=$postData output=user as-value]
-    
-    :if ($syncResult->"status" = "finished") do={
-        :put "Phone-home successful: Router registered with server"
+    :local syncResult ""
+    :do {
+        :set syncResult [/tool fetch url=$syncUrl http-method=post http-data=$postData output=user as-value]
+    } on-error={
+        :put "Phone-home request failed - check network connectivity"
         :if ([:len $routerIp] > 0) do={
-            :put "Router IP sent: $routerIp"
+            :put "Router IP detected: $routerIp (please enter this in the system manually)"
         }
-        :local responseData ($syncResult->"data")
-        :if ([:len $responseData] > 0) do={
-            :put "Response: $responseData"
+    }
+    
+    :if ([:len $syncResult] > 0) do={
+        :local statusValue ""
+        :do {
+            :set statusValue ($syncResult->"status")
+        } on-error={
+            :set statusValue "unknown"
+        }
+        
+        :if ($statusValue = "finished") do={
+            :put "Phone-home successful: Router registered with server"
+            :if ([:len $routerIp] > 0) do={
+                :put "Router IP sent: $routerIp"
+            }
+            :do {
+                :local responseData ($syncResult->"data")
+                :if ([:len $responseData] > 0) do={
+                    :put "Response: $responseData"
+                }
+            } on-error={}
+        } else={
+            :local errorMsg ""
+            :do {
+                :set errorMsg ($syncResult->"error")
+            } on-error={
+                :set errorMsg "Unknown error"
+            }
+            :put "Phone-home failed: $errorMsg"
+            :put "You may need to manually update the router IP in the system"
+            :put "Sync URL was: $syncUrl"
+            :if ([:len $routerIp] > 0) do={
+                :put "Router IP detected: $routerIp (please enter this in the system)"
+            }
         }
     } else={
-        :local errorMsg ($syncResult->"error")
-        :put "Phone-home failed: $errorMsg"
-        :put "You may need to manually update the router IP in the system"
-        :put "Sync URL was: $syncUrl"
+        :put "Phone-home could not be completed"
         :if ([:len $routerIp] > 0) do={
-            :put "Router IP detected: $routerIp (please enter this in the system)"
+            :put "Router IP detected: $routerIp (please enter this in the system manually)"
         }
     }
 } else={
