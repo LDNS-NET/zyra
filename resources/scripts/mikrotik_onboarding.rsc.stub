@@ -62,6 +62,18 @@
 
 :put "-----------------Applying ZiSP configuration-----------------"
 
+# Check if hotspot package is installed (check early to configure RADIUS correctly)
+:local hotspotInstalled "no"
+:do {
+    /ip hotspot print
+    :set hotspotInstalled "yes"
+    :put "-----------------Hotspot package detected-----------------"
+} on-error={
+    :put "-----------------Hotspot package not installed-----------------"
+    :put "Hotspot features will be skipped. Router will be configured for PPPoE only."
+    :set hotspotInstalled "no"
+}
+
 # SNMP Configuration
 :if ([/snmp community find name="zisp"] != "") do={
     /snmp community remove [find name="zisp"]
@@ -72,10 +84,25 @@
 :put "-----------------SNMP community added successfully-----------------"
 /snmp set enabled=yes trap-community="zisp"
 
-# RADIUS Configuration
-/radius add service=ppp,hotspot address=$radiusip secret=$radiussecret disabled=no timeout=3000ms accounting-port=$radiusacctport authentication-port=$radiusauthport
-/radius incoming set accept=yes port=1700
-:put "-----------------RADIUS server added successfully-----------------"
+# RADIUS Configuration (conditionally include hotspot service)
+:local radiusServices "ppp"
+:if ($hotspotInstalled = "yes") do={
+    :set radiusServices "ppp,hotspot"
+}
+:do {
+    /radius add service=$radiusServices address=$radiusip secret=$radiussecret disabled=no timeout=3000ms accounting-port=$radiusacctport authentication-port=$radiusauthport
+    /radius incoming set accept=yes port=1700
+    :put "-----------------RADIUS server added successfully-----------------"
+} on-error={
+    :put "Warning: Could not add RADIUS server, attempting with PPP only..."
+    :do {
+        /radius add service=ppp address=$radiusip secret=$radiussecret disabled=no timeout=3000ms accounting-port=$radiusacctport authentication-port=$radiusauthport
+        /radius incoming set accept=yes port=1700
+        :put "-----------------RADIUS server added successfully (PPP only)-----------------"
+    } on-error={
+        :put "Error: Failed to add RADIUS server. Please check configuration."
+    }
+}
 
 /ppp aaa set use-radius=yes accounting=yes interim-update=1h
 
@@ -139,14 +166,37 @@
 
 :put "-----------------Firewall rules added successfully-----------------"
 
-# Walled garden configuration
-:put "---------------Downloading hotspot files-----------------"
-
-/ip hotspot walled-garden add dst-host="zisp.cloud"
-/ip hotspot walled-garden add dst-host="ui-avatars.com"
-/ip hotspot walled-garden ip add action=accept disabled=no dst-address=$trustedIp
-
-:put "-----------------Walled garden rules added successfully-----------------"
+# Walled garden configuration (only if hotspot is installed)
+:if ($hotspotInstalled = "yes") do={
+    :put "---------------Configuring hotspot walled garden-----------------"
+    :do {
+        /ip hotspot walled-garden remove [find dst-host="zisp.cloud"]
+    } on-error={}
+    :do {
+        /ip hotspot walled-garden add dst-host="zisp.cloud"
+    } on-error={
+        :put "Warning: Could not add walled-garden rule for zisp.cloud"
+    }
+    :do {
+        /ip hotspot walled-garden remove [find dst-host="ui-avatars.com"]
+    } on-error={}
+    :do {
+        /ip hotspot walled-garden add dst-host="ui-avatars.com"
+    } on-error={
+        :put "Warning: Could not add walled-garden rule for ui-avatars.com"
+    }
+    :do {
+        /ip hotspot walled-garden ip remove [find dst-address=$trustedIp]
+    } on-error={}
+    :do {
+        /ip hotspot walled-garden ip add action=accept disabled=no dst-address=$trustedIp
+    } on-error={
+        :put "Warning: Could not add walled-garden IP rule for trusted IP"
+    }
+    :put "-----------------Walled garden rules added successfully-----------------"
+} else={
+    :put "-----------------Skipping walled garden configuration (hotspot not available)-----------------"
+}
 
 # Reboot scheduler
 /system scheduler remove [find name="Reboot"]
@@ -182,38 +232,75 @@ set api-ssl disabled=yes
 } on-error={}
 /ip address add address=10.10.24.1/16 interface=zisp_hotspot_pppoe_bridge
 
-# Create IP pool (remove if exists first)
+# Create IP pool for hotspot/PPPoE bridge (remove if exists first)
 :do {
     /ip pool remove [find name="zisp_hs_pool"]
 } on-error={}
-/ip pool add name=zisp_hs_pool ranges=10.10.24.6-10.10.255.254
+:do {
+    /ip pool add name=zisp_hs_pool ranges=10.10.24.6-10.10.255.254
+    :put "-----------------IP pool created successfully-----------------"
+} on-error={
+    :put "Warning: Could not create IP pool"
+}
 
 # Create DHCP server (remove if exists first)
 :do {
     /ip dhcp-server remove [find name="zisp_hs_dhcp"]
 } on-error={}
-/ip dhcp-server add address-pool=zisp_hs_pool disabled=no interface=zisp_hotspot_pppoe_bridge lease-time=00:10:00 name=zisp_hs_dhcp
+:do {
+    /ip dhcp-server add address-pool=zisp_hs_pool disabled=no interface=zisp_hotspot_pppoe_bridge lease-time=00:10:00 name=zisp_hs_dhcp
+    :put "-----------------DHCP server created successfully-----------------"
+} on-error={
+    :put "Warning: Could not create DHCP server"
+}
 
 # Map network to DHCP (remove if exists first)
 :do {
     /ip dhcp-server network remove [find comment="zisp_hs_network"]
 } on-error={}
-/ip dhcp-server network add address=10.10.0.0/16 comment="zisp_hs_network" gateway=10.10.0.1
-
-# Add hotspot server profile (remove if exists first)
 :do {
-    /ip hotspot profile remove [find name="zisp_hs_prof"]
-} on-error={}
-/ip hotspot profile add hotspot-address=10.10.0.1 login-by=cookie,http-chap,http-pap,mac-cookie name=zisp_hs_prof use-radius=yes radius-interim-update=00:10:00
+    /ip dhcp-server network add address=10.10.0.0/16 comment="zisp_hs_network" gateway=10.10.0.1
+    :put "-----------------DHCP network configured successfully-----------------"
+} on-error={
+    :put "Warning: Could not configure DHCP network"
+}
 
-# Create hotspot server (remove if exists first)
+# Add hotspot server profile (only if hotspot is installed)
+:if ($hotspotInstalled = "yes") do={
+    :do {
+        /ip hotspot profile remove [find name="zisp_hs_prof"]
+    } on-error={}
+    :do {
+        /ip hotspot profile add hotspot-address=10.10.0.1 login-by=cookie,http-chap,http-pap,mac-cookie name=zisp_hs_prof use-radius=yes radius-interim-update=00:10:00
+        :put "-----------------Hotspot profile added successfully-----------------"
+    } on-error={
+        :put "Warning: Could not add hotspot profile"
+    }
+
+    # Create hotspot server (remove if exists first)
+    :do {
+        /ip hotspot remove [find name="zisp_hotspot_pppoe_bridge"]
+    } on-error={}
+    :do {
+        /ip hotspot add address-pool=zisp_hs_pool addresses-per-mac=1 disabled=no idle-timeout=1m interface=zisp_hotspot_pppoe_bridge name=zisp_hotspot_pppoe_bridge profile=zisp_hs_prof
+        :put "-----------------Hotspot server added successfully-----------------"
+    } on-error={
+        :put "Warning: Could not add hotspot server"
+    }
+} else={
+    :put "-----------------Skipping hotspot server configuration (hotspot not available)-----------------"
+}
+
+# Masquerade hotspot/PPPoE bridge network
 :do {
-    /ip hotspot remove [find name="zisp_hotspot_pppoe_bridge"]
+    /ip firewall nat remove [find comment="masquerade hotspot network"]
 } on-error={}
-/ip hotspot add address-pool=zisp_hs_pool addresses-per-mac=1 disabled=no idle-timeout=1m interface=zisp_hotspot_pppoe_bridge name=zisp_hotspot_pppoe_bridge profile=zisp_hs_prof
-
-# Masquerade hotspot network
-/ip firewall nat add action=masquerade chain=srcnat comment="masquerade hotspot network" src-address=10.10.0.0/16;
+:do {
+    /ip firewall nat add action=masquerade chain=srcnat comment="masquerade hotspot network" src-address=10.10.0.0/16
+    :put "-----------------NAT masquerade rule added successfully-----------------"
+} on-error={
+    :put "Warning: Could not add NAT masquerade rule"
+}
 
 # Disable default fastrack to allow for queue, session and quota limit enforcement
 /ip firewall filter disable [find where comment="defconf: fasttrack"];
