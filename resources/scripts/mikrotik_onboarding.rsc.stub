@@ -209,9 +209,13 @@ add action=change-ttl chain=prerouting comment=hide-router-ip-address \
         :if ([:len $routerIp] > 0) do={
             :put "Router IP sent: $routerIp"
         }
-        :put "Response: $($syncResult->\"data\")"
+        :local responseData ($syncResult->"data")
+        :if ([:len $responseData] > 0) do={
+            :put "Response: $responseData"
+        }
     } else={
-        :put "Phone-home failed: $($syncResult->\"error\")"
+        :local errorMsg ($syncResult->"error")
+        :put "Phone-home failed: $errorMsg"
         :put "You may need to manually update the router IP in the system"
         :put "Sync URL was: $syncUrl"
         :if ([:len $routerIp] > 0) do={
