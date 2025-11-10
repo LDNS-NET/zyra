@@ -1,9 +1,12 @@
 <script setup>
-import { ref, onUnmounted, watch } from 'vue';
+import { ref, onUnmounted, watch, computed } from 'vue';
 import { route } from 'ziggy-js';
 import { Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import TextInput from '@/Components/TextInput.vue';
+import InputLabel from '@/Components/InputLabel.vue';
+import InputError from '@/Components/InputError.vue';
 
 const props = defineProps({
     router: Object,
@@ -14,9 +17,13 @@ const copied = ref(false);
 const waiting = ref(false);
 const online = ref(false);
 const pollingError = ref('');
+const ipAddress = ref(props.router?.ip_address || '');
+const ipError = ref('');
+const settingIp = ref(false);
 let pollInterval = null;
 
 const POLL_INTERVAL = 5000; // 5 seconds
+const hasIpAddress = computed(() => ipAddress.value && ipAddress.value.trim() !== '');
 
 // -------------------
 // Copy & Download
@@ -39,13 +46,62 @@ function downloadScript() {
 }
 
 // -------------------
+// Set IP Address
+// -------------------
+async function setIpAddress() {
+    if (!ipAddress.value || !ipAddress.value.trim()) {
+        ipError.value = 'Please enter a valid IP address';
+        return;
+    }
+
+    // Basic IP validation
+    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
+    if (!ipRegex.test(ipAddress.value.trim())) {
+        ipError.value = 'Please enter a valid IP address (e.g., 192.168.88.1)';
+        return;
+    }
+
+    settingIp.value = true;
+    ipError.value = '';
+
+    try {
+        const response = await fetch(route('mikrotiks.setIp', props.router.id), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+            },
+            body: JSON.stringify({ ip_address: ipAddress.value.trim() }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to set IP address');
+        }
+
+        // Update IP address with the cleaned version from server
+        if (data.ip_address) {
+            ipAddress.value = data.ip_address;
+        }
+    } catch (err) {
+        ipError.value = err.message || 'Failed to set IP address';
+    } finally {
+        settingIp.value = false;
+    }
+}
+
+// -------------------
 // Polling Logic
 // -------------------
 function checkRouterStatus() {
     fetch(route('mikrotiks.ping', props.router.id))
         .then((res) => {
-            if (!res.ok)
-                throw new Error('Failed to reach router check endpoint.');
+            if (!res.ok) {
+                return res.json().then(data => {
+                    throw new Error(data.message || 'Failed to reach router check endpoint.');
+                });
+            }
             return res.json();
         })
         .then((data) => {
@@ -53,19 +109,51 @@ function checkRouterStatus() {
                 online.value = true;
                 waiting.value = false;
                 stopPolling();
+                // Update IP address if returned from server
+                if (data.ip_address) {
+                    ipAddress.value = data.ip_address;
+                }
+            } else {
+                // Keep polling if status is pending or offline
+                pollingError.value = data.message || 'Router is not responding...';
             }
         })
         .catch((err) => {
             pollingError.value = err.message || 'Error checking router status.';
-            waiting.value = false;
-            stopPolling();
+            // Don't stop polling on error, keep trying
         });
 }
 
-function startPolling() {
+async function startPolling() {
     if (pollInterval) return; // prevent duplicate intervals
+    
+    // Check if IP address is set
+    if (!hasIpAddress.value) {
+        pollingError.value = 'Please enter the router IP address first';
+        return;
+    }
+
+    // Ensure IP is saved before starting to poll
+    // If we have an IP but it might not be saved, save it first
+    if (!props.router?.ip_address || ipAddress.value.trim() !== props.router.ip_address) {
+        await setIpAddress();
+        if (ipError.value) {
+            return; // Don't start polling if IP save failed
+        }
+    }
+    
+    startPollingInternal();
+}
+
+function startPollingInternal() {
     waiting.value = true;
     pollingError.value = '';
+    online.value = false;
+    
+    // Check immediately first
+    checkRouterStatus();
+    
+    // Then poll every 5 seconds
     pollInterval = setInterval(checkRouterStatus, POLL_INTERVAL);
 }
 
@@ -111,13 +199,13 @@ function proceed() {
                     Copy or download the script below and run it in your
                     Mikrotik terminal (Winbox, WebFig, or SSH).<br />
                     <b class="text-blue-500">Step 2:<br /></b>
-                    After running the script, copy the
-                    <b class="text-blue-500">IP address</b> shown in the output
-                    into the system to complete onboarding.<br />
+                    After running the script, copy one of the
+                    <b class="text-blue-500">IP addresses</b> shown in the script output
+                    and paste it in the IP address field below.<br />
                     <b class="text-blue-600">Step 3:<br /></b>
                     Click <b class="text-blue-600">"I've run the script"</b> to
-                    begin checking if your router is online. Once detected, you
-                    can continue.
+                    start pinging the router. The system will test the API connection
+                    to verify the router is online and accessible.
                 </p>
 
                 <div
@@ -168,13 +256,42 @@ function proceed() {
                     >{{ script }}</pre
                 >
 
+                <!-- IP Address Input -->
+                <div class="mb-4 rounded border border-gray-300 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-800">
+                    <InputLabel for="ip_address" value="Router IP Address" class="mb-2" />
+                    <p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
+                        Copy one of the IP addresses shown in the script output above and paste it here.
+                    </p>
+                    <div class="flex gap-2">
+                        <TextInput
+                            id="ip_address"
+                            v-model="ipAddress"
+                            type="text"
+                            placeholder="e.g., 192.168.88.1 or 10.10.24.1/16"
+                            class="flex-1"
+                            :class="{ 'border-red-500': ipError }"
+                            @keyup.enter="setIpAddress"
+                        />
+                        <PrimaryButton
+                            @click="setIpAddress"
+                            :disabled="settingIp || !ipAddress"
+                        >
+                            {{ settingIp ? 'Saving...' : 'Set IP' }}
+                        </PrimaryButton>
+                    </div>
+                    <InputError :message="ipError" class="mt-2" />
+                    <p v-if="ipAddress && !ipError" class="mt-2 text-sm text-green-600 dark:text-green-400">
+                        ✓ IP Address set: {{ ipAddress }}
+                    </p>
+                </div>
+
                 <!-- Polling Controls -->
                 <div class="mb-4 flex flex-wrap items-center gap-3">
                     <PrimaryButton
                         @click="startPolling"
-                        :disabled="waiting || online"
+                        :disabled="waiting || online || !hasIpAddress"
                     >
-                        I've run the script
+                        {{ waiting ? 'Checking...' : "I've run the script" }}
                     </PrimaryButton>
 
                     <!-- Status Feedback -->
@@ -199,7 +316,7 @@ function proceed() {
                                     d="M4 12a8 8 0 018-8v8z"
                                 ></path>
                             </svg>
-                            Waiting for router to come online...
+                            Pinging {{ ipAddress || router.ip_address }}...
                         </span>
                     </template>
 

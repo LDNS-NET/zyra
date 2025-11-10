@@ -161,8 +161,49 @@ class TenantMikrotikController extends Controller
     }
 
     /**
+     * Set router IP address.
+     */
+    public function setIp(Request $request, $id)
+    {
+        $router = TenantMikrotik::findOrFail($id);
+
+        $data = $request->validate([
+            'ip_address' => 'required|string|max:255',
+        ]);
+
+        // Extract IP from CIDR notation if present (e.g., "192.168.1.1/24" -> "192.168.1.1")
+        $ip = $data['ip_address'];
+        if (strpos($ip, '/') !== false) {
+            $ip = explode('/', $ip)[0];
+        }
+
+        // Validate IP format
+        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid IP address format.',
+            ], 422);
+        }
+
+        $router->ip_address = $ip;
+        $router->save();
+
+        $router->logs()->create([
+            'action' => 'set_ip',
+            'message' => "IP address set to: $ip",
+            'status' => 'success',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'IP address set successfully.',
+            'ip_address' => $router->ip_address,
+        ]);
+    }
+
+    /**
      * Used by the Vue SetupScript.vue component.
-     * Checks if router is online - either via API connection or recent sync.
+     * Pings the router's IP address via API connection test.
      */
     public function pingRouter($id)
     {
@@ -171,40 +212,26 @@ class TenantMikrotikController extends Controller
         // Refresh router data from database
         $router->refresh();
         
-        // Check if router has been synced recently (within last 5 minutes)
-        $recentlySynced = $router->last_seen_at && 
-            $router->last_seen_at->gt(now()->subMinutes(5)) &&
-            $router->status === 'online';
-        
-        // If router has an IP address, try API connection
-        if ($router->ip_address) {
-            $isOnline = $this->testRouterConnection($router);
-            
-            // If API test fails but router was recently synced, consider it online
-            if (!$isOnline && $recentlySynced) {
-                $isOnline = true;
-                $router->status = 'online';
-                $router->save();
-            }
-        } else {
-            // No IP address yet - check if router synced recently
-            if ($recentlySynced) {
-                $isOnline = true;
-                $router->status = 'online';
-                $router->save();
-            } else {
-                $isOnline = false;
-            }
+        // Check if router has an IP address
+        if (!$router->ip_address) {
+            return response()->json([
+                'success' => false,
+                'status' => 'pending',
+                'message' => 'Please set the router IP address first.',
+                'ip_address' => null,
+                'last_seen_at' => $router->last_seen_at,
+            ], 400);
         }
+
+        // Test API connection to the router's IP address
+        $isOnline = $this->testRouterConnection($router);
 
         return response()->json([
             'success' => $isOnline,
-            'status' => $isOnline ? 'online' : ($router->ip_address ? 'offline' : 'pending'),
+            'status' => $isOnline ? 'online' : 'offline',
             'message' => $isOnline 
-                ? 'Router is online!' 
-                : ($router->ip_address 
-                    ? 'Router is offline. Please check connection.' 
-                    : 'Waiting for router to sync...'),
+                ? 'Router is online and responding!' 
+                : 'Router is not responding. Please check: 1) Router is powered on, 2) Internet connection is active, 3) IP address is correct, 4) API service is enabled on the router.',
             'last_seen_at' => $router->last_seen_at,
             'ip_address' => $router->ip_address,
         ]);
