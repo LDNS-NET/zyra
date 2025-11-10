@@ -88,4 +88,48 @@ class MikrotikScriptGenerator
 
         return $template;
     }
+
+    /**
+     * Generate advanced configuration script for Mikrotik routers.
+     * This script configures: Bridge, DHCP, Hotspot, PPPoE, SNMP, etc.
+     *
+     * @param array $options
+     *   - name: Router name
+     *   - router_id: Router database ID
+     *   - radius_ip: RADIUS server IP (optional)
+     *   - radius_secret: RADIUS shared secret (optional)
+     *   - snmp_community: SNMP community name (optional)
+     *   - snmp_location: SNMP location (optional)
+     * @return string
+     */
+    public function generateAdvancedConfig(array $options): string
+    {
+        $name = $options['name'] ?? 'ISP-Managed';
+        $router_id = $options['router_id'] ?? 'ROUTER_ID';
+        $radius_ip = $options['radius_ip'] ?? '207.154.204.144';
+        $radius_secret = $options['radius_secret'] ?? 'ZyraafSecret123';
+        $snmp_community = $options['snmp_community'] ?? 'public';
+        $snmp_location = $options['snmp_location'] ?? 'ZiSP Network';
+
+        // Load stub template
+        $templatePath = resource_path('scripts/mikrotik_advanced_config.rsc.stub');
+        $template = file_exists($templatePath) ? file_get_contents($templatePath) : '';
+        if (!$template) return '';
+
+        // Replace placeholders in the template
+        $replacements = [
+            'name' => $name,
+            'router_id' => $router_id,
+            'radius_ip' => $radius_ip,
+            'radius_secret' => $radius_secret,
+            'snmp_community' => $snmp_community,
+            'snmp_location' => $snmp_location,
+        ];
+
+        foreach ($replacements as $key => $value) {
+            $template = str_replace('{{'.$key.'}}', $value, $template);
+        }
+
+        return $template;
+    }
 }

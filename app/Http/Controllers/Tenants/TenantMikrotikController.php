@@ -710,4 +710,35 @@ class TenantMikrotikController extends Controller
             'Content-Type' => 'application/x-x509-ca-cert',
         ]);
     }
+
+    /**
+     * Download advanced configuration script for router.
+     */
+    public function downloadAdvancedConfig($id, MikrotikScriptGenerator $scriptGenerator)
+    {
+        $router = TenantMikrotik::findOrFail($id);
+
+        // Get RADIUS settings (same as onboarding script)
+        $radius_ip = '207.154.204.144'; // TODO: Get from tenant settings
+        $radius_secret = 'ZyraafSecret123'; // TODO: Get from tenant settings
+
+        $script = $scriptGenerator->generateAdvancedConfig([
+            'name' => $router->name,
+            'router_id' => $router->id,
+            'radius_ip' => $radius_ip,
+            'radius_secret' => $radius_secret,
+            'snmp_community' => 'public', // TODO: Make configurable
+            'snmp_location' => 'ZiSP Network', // TODO: Make configurable
+        ]);
+
+        $router->logs()->create([
+            'action' => 'download_advanced_config',
+            'message' => 'Advanced configuration script downloaded',
+            'status' => 'success',
+        ]);
+
+        return response($script)
+            ->header('Content-Type', 'text/plain')
+            ->header('Content-Disposition', "attachment; filename=advanced_config_router_{$router->id}.rsc");
+    }
 }

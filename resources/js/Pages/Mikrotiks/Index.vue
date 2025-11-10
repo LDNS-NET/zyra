@@ -22,6 +22,7 @@ import {
     MoreHorizontal,
     ExternalLink,
     TestTube,
+    RotateCcw,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -268,6 +269,26 @@ function formatBytes(bytes) {
     pow = Math.min(pow, units.length - 1);
     const val = bytes / Math.pow(1024, pow);
     return `${val.toFixed(2)} ${units[pow]}`;
+}
+
+function downloadAdvancedConfig(router) {
+    formError.value = '';
+    try {
+        // Create a link and trigger download
+        const url = route('mikrotiks.downloadAdvancedConfig', router.id);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `advanced_config_router_${router.id}.rsc`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        window.toast?.success('Advanced configuration script download started') || 
+            console.log('Advanced configuration script download started');
+    } catch (err) {
+        formError.value = `Error downloading advanced config: ${err.message}`;
+        window.toast?.error(formError.value) || console.error(formError.value);
+    }
 }
 
 // Status polling functions
@@ -549,8 +570,22 @@ async function refreshRouterStatus() {
                                                             title="Reprovision/Show Script"
                                                             class="rounded p-2 hover:bg-gray-100"
                                                         >
-                                                            <Download
+                                                            <RotateCcw
                                                                 class="h-5 w-5 text-indigo-600"
+                                                            />
+                                                        </button>
+                                                        <button
+                                                            @click="
+                                                                downloadAdvancedConfig(
+                                                                    router,
+                                                                );
+                                                                closeAllActions();
+                                                            "
+                                                            title="Download Advanced Config Script"
+                                                            class="rounded p-2 hover:bg-gray-100"
+                                                        >
+                                                            <Download
+                                                                class="h-5 w-5 text-purple-600"
                                                             />
                                                         </button>
                                                         <button
