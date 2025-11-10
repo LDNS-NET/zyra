@@ -45,10 +45,21 @@ class CheckMikrotikStatus extends Command
         $onlineCount = 0;
         $offlineCount = 0;
         $errorCount = 0;
+        $staleCount = 0;
 
         foreach ($routers as $router) {
             try {
                 $this->line("Checking router: {$router->name} ({$router->ip_address})...");
+
+                // First, check if router should be marked offline based on last_seen_at
+                if ($this->isRouterStale($router)) {
+                    $router->status = 'offline';
+                    $router->save();
+                    $staleCount++;
+                    $offlineCount++;
+                    $this->warn("  ⏱ Router '{$router->name}' marked offline (last seen > 4 minutes ago)");
+                    continue;
+                }
 
                 // Use the existing testRouterConnection logic from the controller
                 $isOnline = $this->testRouterConnection($router);
@@ -74,11 +85,32 @@ class CheckMikrotikStatus extends Command
         $this->info("\nStatus check complete:");
         $this->info("  Online: {$onlineCount}");
         $this->info("  Offline: {$offlineCount}");
+        if ($staleCount > 0) {
+            $this->warn("  Marked stale (>4min): {$staleCount}");
+        }
         if ($errorCount > 0) {
             $this->warn("  Errors: {$errorCount}");
         }
 
         return 0;
+    }
+
+    /**
+     * Check if router's last_seen_at is more than 4 minutes old.
+     *
+     * @param TenantMikrotik $router
+     * @return bool
+     */
+    private function isRouterStale(TenantMikrotik $router): bool
+    {
+        if (!$router->last_seen_at) {
+            // If never seen, consider it stale if status is online
+            return $router->status === 'online';
+        }
+
+        // Check if last_seen_at is more than 4 minutes ago
+        $fourMinutesAgo = now()->subMinutes(4);
+        return $router->last_seen_at->lt($fourMinutesAgo);
     }
 
     /**
@@ -132,11 +164,21 @@ class CheckMikrotikStatus extends Command
                     'ip_address' => $router->ip_address,
                 ]);
             } else {
-                $router->status = 'offline';
-                Log::debug('Router connection failed: No response', [
-                    'router_id' => $router->id,
-                    'ip_address' => $router->ip_address,
-                ]);
+                // Check if router should be marked offline due to stale last_seen_at
+                if ($this->isRouterStale($router)) {
+                    $router->status = 'offline';
+                    Log::debug('Router marked offline: Connection failed and last_seen_at > 4 minutes', [
+                        'router_id' => $router->id,
+                        'ip_address' => $router->ip_address,
+                        'last_seen_at' => $router->last_seen_at,
+                    ]);
+                } else {
+                    // Connection failed but last_seen_at is recent, keep current status
+                    Log::debug('Router connection failed: No response', [
+                        'router_id' => $router->id,
+                        'ip_address' => $router->ip_address,
+                    ]);
+                }
             }
             
             $router->save();
