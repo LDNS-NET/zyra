@@ -66,6 +66,31 @@ class TenantMikrotikController extends Controller
     }
 
     /**
+     * Get router status (for frontend status checking).
+     * Returns current router status from database without testing connection.
+     */
+    public function getStatus($id)
+    {
+        $router = TenantMikrotik::findOrFail($id);
+        
+        // Refresh router data from database
+        $router->refresh();
+        
+        // Check if router should be marked offline based on last_seen_at (> 4 minutes)
+        if ($this->isRouterStale($router) && $router->status === 'online') {
+            $router->status = 'offline';
+            $router->save();
+        }
+
+        return response()->json([
+            'success' => true,
+            'status' => $router->status,
+            'last_seen_at' => $router->last_seen_at?->toIso8601String(),
+            'ip_address' => $router->ip_address,
+        ]);
+    }
+
+    /**
      * Store a new Mikrotik and show onboarding script.
      */
     public function store(Request $request, MikrotikScriptGenerator $scriptGenerator)

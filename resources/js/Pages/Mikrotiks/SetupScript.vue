@@ -20,9 +20,11 @@ const pollingError = ref('');
 const ipAddress = ref(props.router?.ip_address || '');
 const ipError = ref('');
 const settingIp = ref(false);
-let pollInterval = null;
+let statusCheckInterval = null;
+let timeoutTimer = null;
 
-const POLL_INTERVAL = 5000; // 5 seconds
+const STATUS_CHECK_INTERVAL = 3000; // Check every 3 seconds
+const MAX_WAIT_TIME = 5 * 60 * 1000; // 5 minutes in milliseconds
 const hasIpAddress = computed(() => ipAddress.value && ipAddress.value.trim() !== '');
 
 // -------------------
@@ -92,14 +94,14 @@ async function setIpAddress() {
 }
 
 // -------------------
-// Polling Logic
+// Status Checking Logic (checks database, not API)
 // -------------------
 function checkRouterStatus() {
-    fetch(route('mikrotiks.ping', props.router.id))
+    fetch(route('mikrotiks.status', props.router.id))
         .then((res) => {
             if (!res.ok) {
                 return res.json().then(data => {
-                    throw new Error(data.message || 'Failed to reach router check endpoint.');
+                    throw new Error(data.message || 'Failed to check router status.');
                 });
             }
             return res.json();
@@ -108,24 +110,27 @@ function checkRouterStatus() {
             if (data.status === 'online') {
                 online.value = true;
                 waiting.value = false;
-                stopPolling();
+                stopStatusChecking();
                 // Update IP address if returned from server
                 if (data.ip_address) {
                     ipAddress.value = data.ip_address;
                 }
+                // Show success notification
+                window.toast?.success('Router is online and ready!') || console.log('Router is online!');
             } else {
-                // Keep polling if status is pending or offline
-                pollingError.value = data.message || 'Router is not responding...';
+                // Keep checking if status is pending or offline
+                // Don't show error yet, just keep checking
+                pollingError.value = '';
             }
         })
         .catch((err) => {
-            pollingError.value = err.message || 'Error checking router status.';
-            // Don't stop polling on error, keep trying
+            // Silently continue checking on error
+            console.debug('Status check error:', err);
         });
 }
 
-async function startPolling() {
-    if (pollInterval) return; // prevent duplicate intervals
+async function startStatusChecking() {
+    if (statusCheckInterval) return; // prevent duplicate intervals
     
     // Check if IP address is set
     if (!hasIpAddress.value) {
@@ -133,45 +138,77 @@ async function startPolling() {
         return;
     }
 
-    // Ensure IP is saved before starting to poll
+    // Ensure IP is saved before starting to check
     // If we have an IP but it might not be saved, save it first
     if (!props.router?.ip_address || ipAddress.value.trim() !== props.router.ip_address) {
         await setIpAddress();
         if (ipError.value) {
-            return; // Don't start polling if IP save failed
+            return; // Don't start checking if IP save failed
         }
     }
     
-    startPollingInternal();
+    startStatusCheckingInternal();
 }
 
-function startPollingInternal() {
+function startStatusCheckingInternal() {
     waiting.value = true;
     pollingError.value = '';
     online.value = false;
     
+    const startTime = Date.now();
+    
     // Check immediately first
     checkRouterStatus();
     
-    // Then poll every 5 seconds
-    pollInterval = setInterval(checkRouterStatus, POLL_INTERVAL);
+    // Then check every 3 seconds
+    statusCheckInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        
+        // If 5 minutes have passed, stop checking and show error
+        if (elapsed >= MAX_WAIT_TIME) {
+            stopStatusChecking();
+            waiting.value = false;
+            pollingError.value = 'Router is offline. Please check if the router is connected to the internet and the script was run successfully.';
+            window.toast?.error('Router is offline. Please check if the router is connected to the internet.') || 
+                alert('Router is offline. Please check if the router is connected to the internet and the script was run successfully.');
+            return;
+        }
+        
+        checkRouterStatus();
+    }, STATUS_CHECK_INTERVAL);
+    
+    // Set timeout as backup (in case interval doesn't catch it)
+    timeoutTimer = setTimeout(() => {
+        if (!online.value) {
+            stopStatusChecking();
+            waiting.value = false;
+            pollingError.value = 'Router is offline. Please check if the router is connected to the internet and the script was run successfully.';
+            window.toast?.error('Router is offline. Please check if the router is connected to the internet.') || 
+                alert('Router is offline. Please check if the router is connected to the internet and the script was run successfully.');
+        }
+    }, MAX_WAIT_TIME);
 }
 
-function stopPolling() {
-    if (pollInterval) {
-        clearInterval(pollInterval);
-        pollInterval = null;
+function stopStatusChecking() {
+    if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+        statusCheckInterval = null;
+    }
+    if (timeoutTimer) {
+        clearTimeout(timeoutTimer);
+        timeoutTimer = null;
     }
 }
 
 onUnmounted(() => {
-    stopPolling();
+    stopStatusChecking();
 });
 
 // Optional user feedback when router becomes online
 watch(online, (isOnline) => {
     if (isOnline) {
-        alert('✅ Router is now online and ready for configuration!');
+        // Success notification is already shown in checkRouterStatus()
+        // No need for duplicate alert
     }
 });
 
@@ -204,8 +241,9 @@ function proceed() {
                     and paste it in the IP address field below.<br />
                     <b class="text-blue-600">Step 3:<br /></b>
                     Click <b class="text-blue-600">"I've run the script"</b> to
-                    start pinging the router. The system will test the API connection
-                    to verify the router is online and accessible.
+                    check the router status. The system will monitor the router status
+                    for up to 5 minutes. If the router doesn't come online, please check
+                    if the router is connected to the internet.
                 </p>
 
                 <div
@@ -288,10 +326,10 @@ function proceed() {
                 <!-- Polling Controls -->
                 <div class="mb-4 flex flex-wrap items-center gap-3">
                     <PrimaryButton
-                        @click="startPolling"
+                        @click="startStatusChecking"
                         :disabled="waiting || online || !hasIpAddress"
                     >
-                        {{ waiting ? 'Checking...' : "I've run the script" }}
+                        {{ waiting ? 'Checking status...' : "I've run the script" }}
                     </PrimaryButton>
 
                     <!-- Status Feedback -->
@@ -316,7 +354,7 @@ function proceed() {
                                     d="M4 12a8 8 0 018-8v8z"
                                 ></path>
                             </svg>
-                            Pinging {{ ipAddress || router.ip_address }}...
+                            Checking router status... (waiting up to 5 minutes)
                         </span>
                     </template>
 
