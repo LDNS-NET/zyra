@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { Inertia } from '@inertiajs/inertia';
 import { route } from 'ziggy-js';
@@ -42,16 +42,27 @@ const pinging = ref({});
 const testing = ref({});
 const formError = ref('');
 const actionsOpen = ref({});
+const routersList = ref(props.routers || []);
+let statusPollInterval = null;
 
 function toggleActions(id) {
     actionsOpen.value[id] = !actionsOpen.value[id];
 }
 
+// Watch for props changes and update local list
+watch(() => props.routers, (newRouters) => {
+    routersList.value = newRouters || [];
+}, { immediate: true, deep: true });
+
 onMounted(() => {
     window.addEventListener('click', handleClickOutside);
+    // Start polling for router status updates every 30 seconds
+    startStatusPolling();
 });
+
 onUnmounted(() => {
     window.removeEventListener('click', handleClickOutside);
+    stopStatusPolling();
 });
 function handleClickOutside(e) {
     if (!e.target.closest('.router-actions-toggle')) {
@@ -110,7 +121,13 @@ function editForm() {
         form.put(route('mikrotiks.update', selectedRouter.value.id), {
             onSuccess: () => {
                 closeModal();
-                Inertia.reload({ only: ['routers'], preserveScroll: true });
+                Inertia.reload({ 
+                    only: ['routers'], 
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        routersList.value = props.routers || [];
+                    }
+                });
             },
             onError: (errors) => {
                 formError.value =
@@ -145,7 +162,8 @@ function deleteRouter(mikrotik) {
     if (confirm('Delete this router?')) {
         Inertia.delete(route('mikrotiks.destroy', mikrotik.id), {
             onSuccess: () => {
-                // Optionally reload or show a message
+                // Remove from local list
+                routersList.value = routersList.value.filter(r => r.id !== mikrotik.id);
             },
         });
     }
@@ -165,6 +183,12 @@ async function pingRouter(router) {
 
         router.status = data.status;
         router.last_seen_at = data.last_seen_at;
+        
+        // Update the routers list to reflect the change
+        const index = routersList.value.findIndex(r => r.id === router.id);
+        if (index !== -1) {
+            routersList.value[index] = { ...router };
+        }
 
         // Use a nicer non-blocking feedback
         window.toast?.success(data.message) || console.log(data.message);
@@ -192,6 +216,12 @@ async function testRouterConnection(router) {
         // Update router status in the UI
         router.status = data.status;
         router.last_seen_at = data.last_seen_at;
+        
+        // Update the routers list to reflect the change
+        const index = routersList.value.findIndex(r => r.id === router.id);
+        if (index !== -1) {
+            routersList.value[index] = { ...router };
+        }
 
         // Use toast notification if available, otherwise console
         window.toast?.success(data.message) || console.log(data.message);
@@ -238,6 +268,38 @@ function formatBytes(bytes) {
     pow = Math.min(pow, units.length - 1);
     const val = bytes / Math.pow(1024, pow);
     return `${val.toFixed(2)} ${units[pow]}`;
+}
+
+// Status polling functions
+function startStatusPolling() {
+    // Poll every 30 seconds to get updated router status
+    // This matches the backend's 3-minute check cycle (we poll more frequently for better UX)
+    statusPollInterval = setInterval(() => {
+        refreshRouterStatus();
+    }, 30000); // 30 seconds
+}
+
+function stopStatusPolling() {
+    if (statusPollInterval) {
+        clearInterval(statusPollInterval);
+        statusPollInterval = null;
+    }
+}
+
+async function refreshRouterStatus() {
+    try {
+        // Reload only the routers data to get updated status
+        await Inertia.reload({
+            only: ['routers'],
+            preserveScroll: true,
+            preserveState: true,
+        });
+        // Update the local routers list
+        routersList.value = props.routers || [];
+    } catch (err) {
+        // Silently fail - don't interrupt user experience
+        console.debug('Status refresh failed:', err);
+    }
 }
 </script>
 
@@ -316,7 +378,7 @@ function formatBytes(bytes) {
                                     class="divide-y divide-gray-200 bg-white dark:bg-black dark:text-white"
                                 >
                                     <tr
-                                        v-for="router in routers"
+                                        v-for="router in routersList"
                                         :key="router.id"
                                         class="hover:bg-gray-50 dark:hover:bg-gray-800"
                                     >
@@ -510,7 +572,7 @@ function formatBytes(bytes) {
                                             </div>
                                         </td>
                                     </tr>
-                                    <tr v-if="!routers.length">
+                                    <tr v-if="!routersList.length">
                                         <td
                                             colspan="7"
                                             class="px-6 py-4 text-center text-gray-500"
