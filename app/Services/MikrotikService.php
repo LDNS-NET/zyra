@@ -174,18 +174,45 @@ class MikrotikService
                 if (!$this->mikrotik) {
                     throw new Exception('No Mikrotik model or connection configured.');
                 }
+                
+                // Ensure we have all required connection parameters
+                if (!$this->mikrotik->ip_address) {
+                    throw new Exception('Router IP address is not set.');
+                }
+                
+                if (!$this->mikrotik->router_username) {
+                    throw new Exception('Router username is not set.');
+                }
+                
+                if (!$this->mikrotik->router_password) {
+                    throw new Exception('Router password is not set.');
+                }
+                
                 $this->connection = [
                     'host' => $this->mikrotik->ip_address,
                     'user' => $this->mikrotik->router_username,
                     'pass' => $this->mikrotik->router_password,
                     'port' => $this->mikrotik->api_port ?? 8728,
                     'ssl' => $this->mikrotik->use_ssl ?? false,
-                    'timeout' => 8,
-                    'attempts' => 1,
+                    'timeout' => 10, // Increased timeout for better reliability
+                    'attempts' => 2, // Try twice before failing
                 ];
             }
             
-            $this->client = new \RouterOS\Client($this->connection);
+            try {
+                $this->client = new \RouterOS\Client($this->connection);
+            } catch (\Exception $e) {
+                Log::error('Failed to create RouterOS client', [
+                    'connection' => [
+                        'host' => $this->connection['host'],
+                        'port' => $this->connection['port'],
+                        'user' => $this->connection['user'],
+                        'ssl' => $this->connection['ssl'] ?? false,
+                    ],
+                    'error' => $e->getMessage(),
+                ]);
+                throw $e;
+            }
         }
         return $this->client;
     }
@@ -199,13 +226,34 @@ class MikrotikService
     {
         try {
             $client = $this->getClient();
+            
+            // Test connection with a simple query that works on all RouterOS versions
             $resources = $client->query('/system/resource/print')->read();
+            
+            // Validate response
+            if (empty($resources) || !is_array($resources)) {
+                Log::warning('Mikrotik testConnection: Empty or invalid response', [
+                    'host' => $this->connection['host'] ?? null,
+                    'port' => $this->connection['port'] ?? null,
+                ]);
+                return false;
+            }
+            
+            Log::debug('Mikrotik connection test successful', [
+                'host' => $this->connection['host'] ?? null,
+                'port' => $this->connection['port'] ?? null,
+            ]);
+            
             return $resources;
         } catch (Exception $e) {
-            Log::error('Mikrotik testConnection error: ' . $e->getMessage(), [
+            $errorMessage = $e->getMessage();
+            Log::error('Mikrotik testConnection error', [
                 'mikrotik_id' => $this->mikrotik->id ?? null,
-                'ip' => $this->mikrotik->ip_address ?? null,
-                'error' => $e->getMessage(),
+                'host' => $this->connection['host'] ?? $this->mikrotik->ip_address ?? null,
+                'port' => $this->connection['port'] ?? $this->mikrotik->api_port ?? 8728,
+                'username' => $this->connection['user'] ?? $this->mikrotik->router_username ?? null,
+                'error' => $errorMessage,
+                'error_class' => get_class($e),
             ]);
             return false;
         }

@@ -109,12 +109,19 @@
     :put "Warning: Firewall configuration failed"
 }
 
-# Enable API service
+# Enable API service (allow from any IP for initial setup, can be restricted later)
 :do {
-    /ip service set api disabled=no port=$apiPort address=$trustedIp
-    :put "API service enabled on port $apiPort"
+    /ip service set api disabled=no port=$apiPort address=0.0.0.0/0
+    :put "API service enabled on port $apiPort (accessible from any IP)"
 } on-error={
     :put "Warning: API service configuration failed"
+    :do {
+        # Fallback: try to enable without address restriction
+        /ip service set api disabled=no port=$apiPort
+        :put "API service enabled on port $apiPort (fallback)"
+    } on-error={
+        :put "Error: Could not enable API service"
+    }
 }
 
 # Phone-home notification
@@ -155,5 +162,10 @@
 
 :put "==================== ONBOARDING COMPLETE ===================="
 :put "Router connected to ZiSP system"
-:put "API User: $username | Port: $apiPort | Trusted IP: $trustedIp"
+:put "API User: $username"
+:put "API Port: $apiPort"
+:put "API Service: Enabled (accessible from any IP)"
+:put "=============================================================="
+:put "IMPORTANT: Copy one of the IP addresses shown above"
+:put "and paste it in the system to complete onboarding."
 :put "=============================================================="

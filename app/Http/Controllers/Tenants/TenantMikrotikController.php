@@ -64,12 +64,18 @@ class TenantMikrotikController extends Controller
             'router_username' => 'required|string|max:255',
             'router_password' => 'required|string|min:1',
             'notes' => 'nullable|string',
+            'api_port' => 'nullable|integer|min:1|max:65535',
         ]);
+
+        // Ensure API port is set (default 8728)
+        $apiPort = $data['api_port'] ?? 8728;
 
         $router = TenantMikrotik::create([
             'name' => $data['name'],
             'router_username' => $data['router_username'],
             'router_password' => $data['router_password'],
+            'api_port' => $apiPort,
+            'connection_type' => 'api',
             'notes' => $data['notes'] ?? null,
             'status' => 'pending',
             'sync_token' => Str::random(40),
@@ -82,6 +88,9 @@ class TenantMikrotikController extends Controller
         // Get server IP (trusted IP) - use config or request IP
         $trustedIp = config('app.server_ip') ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
         
+        // Ensure API port is set (should already be set in create, but double-check)
+        $apiPort = $router->api_port ?? 8728;
+        
         $script = $scriptGenerator->generate([
             'name' => $router->name,
             'username' => $router->router_username,
@@ -89,10 +98,19 @@ class TenantMikrotikController extends Controller
             'router_id' => $router->id,
             'sync_token' => $router->sync_token,
             'ca_url' => $caUrl,
-            'api_port' => $router->api_port ?? 8728,
+            'api_port' => $apiPort, // Use the stored API port
             'trusted_ip' => $trustedIp,
             'radius_ip' => '207.154.204.144', // TODO: Get from tenant settings
             'radius_secret' => 'ZyraafSecret123', // TODO: Get from tenant settings
+        ]);
+        
+        // Log the created router details for debugging
+        Log::info('MikroTik router created', [
+            'router_id' => $router->id,
+            'name' => $router->name,
+            'username' => $router->router_username,
+            'api_port' => $apiPort,
+            'trusted_ip' => $trustedIp,
         ]);
 
         return Inertia::render('Mikrotiks/SetupScript', [
@@ -185,12 +203,21 @@ class TenantMikrotikController extends Controller
             ], 422);
         }
 
+        $oldIp = $router->ip_address;
         $router->ip_address = $ip;
         $router->save();
 
+        Log::info('Router IP address set', [
+            'router_id' => $router->id,
+            'old_ip' => $oldIp,
+            'new_ip' => $ip,
+            'username' => $router->router_username,
+            'api_port' => $router->api_port,
+        ]);
+
         $router->logs()->create([
             'action' => 'set_ip',
-            'message' => "IP address set to: $ip",
+            'message' => "IP address set to: $ip (API port: {$router->api_port}, Username: {$router->router_username})",
             'status' => 'success',
         ]);
 
@@ -198,6 +225,8 @@ class TenantMikrotikController extends Controller
             'success' => true,
             'message' => 'IP address set successfully.',
             'ip_address' => $router->ip_address,
+            'api_port' => $router->api_port,
+            'username' => $router->router_username,
         ]);
     }
 
@@ -230,10 +259,12 @@ class TenantMikrotikController extends Controller
             'success' => $isOnline,
             'status' => $isOnline ? 'online' : 'offline',
             'message' => $isOnline 
-                ? 'Router is online and responding!' 
-                : 'Router is not responding. Please check: 1) Router is powered on, 2) Internet connection is active, 3) IP address is correct, 4) API service is enabled on the router.',
+                ? 'Router is online and responding via API!' 
+                : 'Router is not responding. Please verify: 1) Router is powered on and online, 2) IP address is correct (' . $router->ip_address . '), 3) API service is enabled on port ' . ($router->api_port ?? 8728) . ', 4) Username and password are correct, 5) Firewall allows API connections from this server.',
             'last_seen_at' => $router->last_seen_at,
             'ip_address' => $router->ip_address,
+            'api_port' => $router->api_port ?? 8728,
+            'username' => $router->router_username,
         ]);
     }
 
@@ -398,41 +429,95 @@ class TenantMikrotikController extends Controller
     {
         try {
             if (!$router->ip_address) {
+                Log::warning('Router test skipped: No IP address', ['router_id' => $router->id]);
                 return false;
             }
+
+            // Use the exact credentials and port from database
+            $apiPort = $router->api_port ?? 8728;
+            $useSsl = $router->use_ssl ?? false;
+
+            // Log connection attempt details (without password)
+            Log::info('Testing router connection', [
+                'router_id' => $router->id,
+                'ip_address' => $router->ip_address,
+                'username' => $router->router_username,
+                'api_port' => $apiPort,
+                'use_ssl' => $useSsl,
+            ]);
 
             $service = MikrotikService::forMikrotik($router)
                 ->setConnection(
                     $router->ip_address,
                     $router->router_username,
                     $router->router_password,
-                    $router->api_port ?? 8728,
-                    $router->use_ssl ?? false
+                    $apiPort,
+                    $useSsl
                 );
 
             $resources = $service->testConnection();
             $isOnline = $resources !== false;
 
-            $router->status = $isOnline ? 'online' : 'offline';
             if ($isOnline) {
+                // Update router status and last seen
+                $router->status = 'online';
                 $router->last_seen_at = now();
+                
+                // Optionally update router info from resources
+                if (is_array($resources) && !empty($resources[0])) {
+                    $resource = $resources[0];
+                    $router->model = $resource['board-name'] ?? $router->model;
+                    $router->os_version = $resource['version'] ?? $router->os_version;
+                    $router->uptime = isset($resource['uptime']) ? (int)$resource['uptime'] : $router->uptime;
+                    $router->cpu_usage = isset($resource['cpu-load']) ? (float)$resource['cpu-load'] : $router->cpu_usage;
+                    $router->memory_usage = isset($resource['free-memory']) && isset($resource['total-memory']) 
+                        ? round((1 - ($resource['free-memory'] / $resource['total-memory'])) * 100, 2)
+                        : $router->memory_usage;
+                }
+                
+                Log::info('Router connection successful', [
+                    'router_id' => $router->id,
+                    'ip_address' => $router->ip_address,
+                ]);
+            } else {
+                $router->status = 'offline';
+                Log::warning('Router connection failed: No response', [
+                    'router_id' => $router->id,
+                    'ip_address' => $router->ip_address,
+                ]);
             }
+            
             $router->save();
 
             $router->logs()->create([
                 'action' => 'ping',
-                'message' => $isOnline ? 'Router responded successfully.' : 'Router did not respond.',
+                'message' => $isOnline 
+                    ? "Router responded successfully via API (port $apiPort)" 
+                    : "Router did not respond to API connection test (port $apiPort)",
                 'status' => $isOnline ? 'success' : 'failed',
             ]);
 
             return $isOnline;
         } catch (\Throwable $e) {
-            Log::error("Router test failed: {$e->getMessage()}");
+            $errorMessage = $e->getMessage();
+            Log::error("Router connection test failed", [
+                'router_id' => $router->id,
+                'ip_address' => $router->ip_address,
+                'api_port' => $router->api_port ?? 8728,
+                'error' => $errorMessage,
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            $router->status = 'offline';
+            $router->save();
+            
             $router->logs()->create([
                 'action' => 'ping',
-                'message' => 'Error during router connection test: ' . $e->getMessage(),
+                'message' => 'Error during router connection test: ' . $errorMessage,
                 'status' => 'failed',
+                'response_data' => ['error' => $errorMessage],
             ]);
+            
             return false;
         }
     }
