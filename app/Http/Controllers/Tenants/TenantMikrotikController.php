@@ -121,6 +121,9 @@ class TenantMikrotikController extends Controller
             ? route('mikrotiks.downloadCACert', $router->id)
             : null;
 
+        // Get server IP (trusted IP) - use config or request IP
+        $trustedIp = config('app.server_ip') ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
+        
         // Ensure API port is set (should already be set in create, but double-check)
         $apiPort = $router->api_port ?? 8728;
         
@@ -132,6 +135,7 @@ class TenantMikrotikController extends Controller
             'sync_token' => $router->sync_token,
             'ca_url' => $caUrl,
             'api_port' => $apiPort, // Use the stored API port
+            'trusted_ip' => $trustedIp,
             'radius_ip' => '207.154.204.144', // TODO: Get from tenant settings
             'radius_secret' => 'ZyraafSecret123', // TODO: Get from tenant settings
         ]);
@@ -142,6 +146,7 @@ class TenantMikrotikController extends Controller
             'name' => $router->name,
             'username' => $router->router_username,
             'api_port' => $apiPort,
+            'trusted_ip' => $trustedIp,
         ]);
 
         return Inertia::render('Mikrotiks/SetupScript', [
@@ -316,6 +321,9 @@ class TenantMikrotikController extends Controller
             ? route('mikrotiks.downloadCACert', $router->id)
             : null;
 
+        // Get server IP (trusted IP) - use config or request IP
+        $trustedIp = config('app.server_ip') ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
+        
         $script = $scriptGenerator->generate([
             'name' => $router->name,
             'username' => $router->router_username,
@@ -324,6 +332,7 @@ class TenantMikrotikController extends Controller
             'sync_token' => $router->sync_token,
             'ca_url' => $caUrl,
             'api_port' => $router->api_port ?? 8728,
+            'trusted_ip' => $trustedIp,
             'radius_ip' => '207.154.204.144', // TODO: Get from tenant settings
             'radius_secret' => 'ZyraafSecret123', // TODO: Get from tenant settings
         ]);
@@ -350,6 +359,9 @@ class TenantMikrotikController extends Controller
             ? route('mikrotiks.downloadCACert', $router->id)
             : null;
 
+        // Get server IP (trusted IP) - use config or request IP
+        $trustedIp = config('app.server_ip') ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
+        
         $script = $scriptGenerator->generate([
             'name' => $router->name,
             'username' => $router->router_username,
@@ -358,6 +370,7 @@ class TenantMikrotikController extends Controller
             'sync_token' => $router->sync_token,
             'ca_url' => $caUrl,
             'api_port' => $router->api_port ?? 8728,
+            'trusted_ip' => $trustedIp,
             'radius_ip' => '207.154.204.144', // TODO: Get from tenant settings
             'radius_secret' => 'ZyraafSecret123', // TODO: Get from tenant settings
         ]);
@@ -719,6 +732,7 @@ class TenantMikrotikController extends Controller
             'api_port' => $router->api_port ?? 8728,
             'username' => $router->router_username,
             'router_password' => $router->router_password,
+            'trusted_ip' => $this->getTrustedIpForScripts(),
         ]);
 
         $router->logs()->create([
@@ -732,4 +746,23 @@ class TenantMikrotikController extends Controller
             ->header('Content-Disposition', "attachment; filename=advanced_config_router_{$router->id}.rsc");
     }
 
+    /**
+     * Get trusted IP for scripts.
+     * This method is used to ensure consistent trusted IP across different script generations.
+     * It can be overridden by child classes if specific logic is needed.
+     */
+    protected function getTrustedIpForScripts()
+    {
+        $trustedIp = config('app.server_ip') ?? request()->server('SERVER_ADDR') ?? request()->ip();
+
+        if (!$trustedIp) {
+            return '0.0.0.0/0';
+        }
+
+        if (!str_contains($trustedIp, '/')) {
+            $trustedIp .= '/32';
+        }
+
+        return $trustedIp;
+    }
 }

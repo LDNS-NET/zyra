@@ -4,7 +4,6 @@ namespace App\Services;
 
 class MikrotikScriptGenerator
 {
-    const DEFAULT_TRUSTED_IP = '207.154.204.144/32';
     /**
      * Generate a full, system-ready onboarding script for Mikrotik routers.
      *
@@ -42,24 +41,37 @@ class MikrotikScriptGenerator
         $api_port = $options['api_port'] ?? '8728';
         $sync_token = $options['sync_token'] ?? null;
         $sync_url = $options['sync_url'] ?? null;
+        $register_url = $options['register_url'] ?? null;
 
         if (!$sync_url && !empty($router_id)) {
             try {
-                // Build absolute URL without relying on env config
-                $baseUrl = request()->scheme() . '://' . request()->getHttpHost();
-                $relative = route('mikrotiks.sync', ['mikrotik' => $router_id], false);
-                $sync_url = rtrim($baseUrl, '/') . $relative;
+                // Generate absolute URL with full domain
+                $sync_url = url(route('mikrotiks.sync', ['mikrotik' => $router_id], false));
                 if ($sync_token) {
                     $sync_url .= "?token=$sync_token";
                 }
             } catch (\Exception $e) {
-                // Last resort fallback
-                $sync_url = "/mikrotiks/{$router_id}/sync" . ($sync_token ? "?token=$sync_token" : '');
+                // Fallback: use config app.url or request URL
+                $baseUrl = config('app.url') ?? (request()->scheme() . '://' . request()->getHttpHost());
+                $sync_url = rtrim($baseUrl, '/') . "/mikrotiks/{$router_id}/sync";
+                if ($sync_token) {
+                    $sync_url .= "?token=$sync_token";
+                }
             }
         }
 
-        // Hardcoded trusted IP (no env/config dependency)
-        $trusted_ip = $options['trusted_ip'] ?? self::DEFAULT_TRUSTED_IP;
+        // Compute register_url if not provided
+        if (!$register_url) {
+            try {
+                $baseUrl = config('app.url') ?? (request()->scheme() . '://' . request()->getHttpHost());
+                $register_url = rtrim($baseUrl, '/') . '/api/mikrotik/register';
+            } catch (\Exception $e) {
+                $register_url = 'https://example.com/api/mikrotik/register';
+            }
+        }
+
+        // Get trusted IP (server IP) - use request IP or config
+        $trusted_ip = $options['trusted_ip'] ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
 
         // Load stub template
         $templatePath = resource_path('scripts/mikrotik_onboarding.rsc.stub');
@@ -79,6 +91,7 @@ class MikrotikScriptGenerator
             'api_port' => $api_port,
             'sync_url' => $sync_url ?? '',
             'trusted_ip' => $trusted_ip,
+            'register_url' => $register_url,
         ];
 
         foreach ($replacements as $key => $value) {
@@ -112,7 +125,7 @@ class MikrotikScriptGenerator
         $api_port = $options['api_port'] ?? '8728';
         $username = $options['username'] ?? 'apiuser';
         $router_password = $options['router_password'] ?? 'apipassword';
-        $trusted_ip = $options['trusted_ip'] ?? self::DEFAULT_TRUSTED_IP;
+        $trusted_ip = $options['trusted_ip'] ?? '0.0.0.0/0';
 
         // Load stub template
         $templatePath = resource_path('scripts/mikrotik_advanced_config.rsc.stub');
