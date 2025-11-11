@@ -121,8 +121,8 @@ class TenantMikrotikController extends Controller
             ? route('mikrotiks.downloadCACert', $router->id)
             : null;
 
-        // Get server IP (trusted IP) - use config or request IP
-        $trustedIp = config('app.server_ip') ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
+        // Get server IP (trusted IP) - standardized helper adds /32 when needed
+        $trustedIp = $this->getTrustedIpForScripts();
         
         // Ensure API port is set (should already be set in create, but double-check)
         $apiPort = $router->api_port ?? 8728;
@@ -321,8 +321,8 @@ class TenantMikrotikController extends Controller
             ? route('mikrotiks.downloadCACert', $router->id)
             : null;
 
-        // Get server IP (trusted IP) - use config or request IP
-        $trustedIp = config('app.server_ip') ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
+        // Get server IP (trusted IP) - standardized helper adds /32 when needed
+        $trustedIp = $this->getTrustedIpForScripts();
         
         $script = $scriptGenerator->generate([
             'name' => $router->name,
@@ -359,8 +359,8 @@ class TenantMikrotikController extends Controller
             ? route('mikrotiks.downloadCACert', $router->id)
             : null;
 
-        // Get server IP (trusted IP) - use config or request IP
-        $trustedIp = config('app.server_ip') ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
+        // Get server IP (trusted IP) - standardized helper adds /32 when needed
+        $trustedIp = $this->getTrustedIpForScripts();
         
         $script = $scriptGenerator->generate([
             'name' => $router->name,
@@ -746,23 +746,4 @@ class TenantMikrotikController extends Controller
             ->header('Content-Disposition', "attachment; filename=advanced_config_router_{$router->id}.rsc");
     }
 
-    /**
-     * Get trusted IP for scripts.
-     * This method is used to ensure consistent trusted IP across different script generations.
-     * It can be overridden by child classes if specific logic is needed.
-     */
-    protected function getTrustedIpForScripts()
-    {
-        $trustedIp = config('app.server_ip') ?? request()->server('SERVER_ADDR') ?? request()->ip();
-
-        if (!$trustedIp) {
-            return '0.0.0.0/0';
-        }
-
-        if (!str_contains($trustedIp, '/')) {
-            $trustedIp .= '/32';
-        }
-
-        return $trustedIp;
-    }
 }
