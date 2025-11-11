@@ -9,8 +9,6 @@
 :local radiussecret "{{radius_secret}}"
 :local radiusip "{{radius_ip}}"
 :local trustedIp "{{trusted_ip}}"
-:local tenantId "{{tenant_id}}"
-:local registerUrl "{{register_url}}"
 
 :put "==================== ZiSP MIKROTIK ONBOARDING ===================="
 
@@ -199,68 +197,3 @@
 :put "IMPORTANT: Copy one of the IP addresses shown above"
 :put "and paste it in the system to complete onboarding."
 :put "=============================================================="
-
-# --- WireGuard Auto-Registration and Configuration ---
-:do {
-    :if ([:len $registerUrl] > 0) do={
-        # Generate WireGuard key pair
-        :local wgkeys [/interface/wireguard generate-key];
-        :local mkPriv (:"$wgkeys->\"private-key\"");
-        :local mkPub (:"$wgkeys->\"public-key\"");
-
-        # Prepare JSON payload
-        :local payload ("{\"tenant_id\":\"" . $tenantId . "\",\"public_key\":\"" . $mkPub . "\"}");
-
-        # Register with server
-        :local result [/tool fetch url=$registerUrl http-method=post http-header-field="Content-Type: application/json" http-data=$payload output=user as-value];
-        :local resp ($result->"data");
-
-        # Parse response for server_public_key, assigned_ip, endpoint
-        :local sKey "\"server_public_key\":\"";
-        :local sIp "\"assigned_ip\":\"";
-        :local sEp "\"endpoint\":\"";
-
-        :local skStart ([:find $resp $sKey] + [:len $sKey]);
-        :local skEnd [:find $resp "\"" $skStart];
-        :local serverPub [:pick $resp $skStart $skEnd];
-
-        :local ipStart ([:find $resp $sIp] + [:len $sIp]);
-        :local ipEnd [:find $resp "\"" $ipStart];
-        :local assignedIp [:pick $resp $ipStart $ipEnd];
-
-        :local epStart ([:find $resp $sEp] + [:len $sEp]);
-        :local epEnd [:find $resp "\"" $epStart];
-        :local endpoint [:pick $resp $epStart $epEnd];
-
-        # Split endpoint host:port
-        :local colonPos [:find $endpoint ":"];
-        :local epHost [:pick $endpoint 0 $colonPos];
-        :local epPort [:pick $endpoint ($colonPos + 1) [:len $endpoint]];
-
-        # Create/update WireGuard interface
-        :if ([:len [/interface/wireguard find where name="wg-do"]] = 0) do={
-            /interface/wireguard add name=wg-do listen-port=0 private-key=$mkPriv mtu=1420;
-        } else={
-            /interface/wireguard set [find where name="wg-do"] private-key=$mkPriv mtu=1420;
-        }
-
-        # Assign tunnel IP
-        :if ([:len $assignedIp] > 0 && [:len [/ip/address find where interface="wg-do" && address~($assignedIp . "/")]] = 0) do={
-            /ip/address add address=($assignedIp . "/24") interface=wg-do;
-        }
-
-        # Configure peer
-        :local peerId [/interface/wireguard/peers find where interface="wg-do"];
-        :if ([:len $peerId] = 0) do={
-            /interface/wireguard/peers add interface=wg-do public-key=$serverPub endpoint-address=$epHost endpoint-port=$epPort \
-                allowed-address=10.10.0.1/32 persistent-keepalive=25s;
-        } else={
-            /interface/wireguard/peers set $peerId public-key=$serverPub endpoint-address=$epHost endpoint-port=$epPort \
-                allowed-address=10.10.0.1/32 persistent-keepalive=25s;
-        }
-
-        # Quick connectivity test (non-fatal)
-        :delay 1s;
-        :do { /ping 10.10.0.1 interface=wg-do count=2; } on-error={}
-    }
-} on-error={}

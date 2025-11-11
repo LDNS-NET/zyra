@@ -41,7 +41,6 @@ class MikrotikScriptGenerator
         $api_port = $options['api_port'] ?? '8728';
         $sync_token = $options['sync_token'] ?? null;
         $sync_url = $options['sync_url'] ?? null;
-        $register_url = $options['register_url'] ?? null;
 
         if (!$sync_url && !empty($router_id)) {
             try {
@@ -57,16 +56,6 @@ class MikrotikScriptGenerator
                 if ($sync_token) {
                     $sync_url .= "?token=$sync_token";
                 }
-            }
-        }
-
-        // Compute register_url if not provided
-        if (!$register_url) {
-            try {
-                $baseUrl = config('app.url') ?? (request()->scheme() . '://' . request()->getHttpHost());
-                $register_url = rtrim($baseUrl, '/') . '/api/mikrotik/register';
-            } catch (\Exception $e) {
-                $register_url = 'https://example.com/api/mikrotik/register';
             }
         }
 
@@ -91,7 +80,6 @@ class MikrotikScriptGenerator
             'api_port' => $api_port,
             'sync_url' => $sync_url ?? '',
             'trusted_ip' => $trusted_ip,
-            'register_url' => $register_url,
         ];
 
         foreach ($replacements as $key => $value) {
