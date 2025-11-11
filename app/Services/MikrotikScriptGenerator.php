@@ -4,6 +4,7 @@ namespace App\Services;
 
 class MikrotikScriptGenerator
 {
+    const DEFAULT_TRUSTED_IP = '207.154.204.144/32';
     /**
      * Generate a full, system-ready onboarding script for Mikrotik routers.
      *
@@ -44,23 +45,21 @@ class MikrotikScriptGenerator
 
         if (!$sync_url && !empty($router_id)) {
             try {
-                // Generate absolute URL with full domain
-                $sync_url = url(route('mikrotiks.sync', ['mikrotik' => $router_id], false));
+                // Build absolute URL without relying on env config
+                $baseUrl = request()->scheme() . '://' . request()->getHttpHost();
+                $relative = route('mikrotiks.sync', ['mikrotik' => $router_id], false);
+                $sync_url = rtrim($baseUrl, '/') . $relative;
                 if ($sync_token) {
                     $sync_url .= "?token=$sync_token";
                 }
             } catch (\Exception $e) {
-                // Fallback: use config app.url or request URL
-                $baseUrl = config('app.url') ?? (request()->scheme() . '://' . request()->getHttpHost());
-                $sync_url = rtrim($baseUrl, '/') . "/mikrotiks/{$router_id}/sync";
-                if ($sync_token) {
-                    $sync_url .= "?token=$sync_token";
-                }
+                // Last resort fallback
+                $sync_url = "/mikrotiks/{$router_id}/sync" . ($sync_token ? "?token=$sync_token" : '');
             }
         }
 
-        // Get trusted IP (server IP) - use request IP or config
-        $trusted_ip = $options['trusted_ip'] ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
+        // Hardcoded trusted IP (no env/config dependency)
+        $trusted_ip = $options['trusted_ip'] ?? self::DEFAULT_TRUSTED_IP;
 
         // Load stub template
         $templatePath = resource_path('scripts/mikrotik_onboarding.rsc.stub');
@@ -113,7 +112,7 @@ class MikrotikScriptGenerator
         $api_port = $options['api_port'] ?? '8728';
         $username = $options['username'] ?? 'apiuser';
         $router_password = $options['router_password'] ?? 'apipassword';
-        $trusted_ip = $options['trusted_ip'] ?? '0.0.0.0/0';
+        $trusted_ip = $options['trusted_ip'] ?? self::DEFAULT_TRUSTED_IP;
 
         // Load stub template
         $templatePath = resource_path('scripts/mikrotik_advanced_config.rsc.stub');
