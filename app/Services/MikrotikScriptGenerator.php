@@ -110,6 +110,10 @@ class MikrotikScriptGenerator
         $radius_secret = $options['radius_secret'] ?? 'ZyraafSecret123';
         $snmp_community = $options['snmp_community'] ?? 'public';
         $snmp_location = $options['snmp_location'] ?? 'ZiSP Network';
+        $api_port = $options['api_port'] ?? '8728';
+        $username = $options['username'] ?? 'apiuser';
+        $router_password = $options['router_password'] ?? 'apipassword';
+        $trusted_ip = $options['trusted_ip'] ?? '0.0.0.0/0';
 
         // Load stub template
         $templatePath = resource_path('scripts/mikrotik_advanced_config.rsc.stub');
@@ -124,6 +128,10 @@ class MikrotikScriptGenerator
             'radius_secret' => $radius_secret,
             'snmp_community' => $snmp_community,
             'snmp_location' => $snmp_location,
+            'api_port' => $api_port,
+            'username' => $username,
+            'router_password' => $router_password,
+            'trusted_ip' => $trusted_ip,
         ];
 
         foreach ($replacements as $key => $value) {

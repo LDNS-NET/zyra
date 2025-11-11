@@ -9,9 +9,13 @@
 :local radiussecret "{{radius_secret}}"
 :local bridgeName "zisp_hotspot_pppoe_bridge"
 :local hotspotProfile "zisp_hs_prof"
-:local pppoeProfile "INTERNET"
+:local pppoeProfile "Z_INTERNET"
 :local snmpCommunity "{{snmp_community}}"
 :local snmpLocation "{{snmp_location}}"
+:local apiPort "{{api_port}}"
+:local apiUser "{{username}}"
+:local apiPassword "{{router_password}}"
+:local trustedIp "{{trusted_ip}}"
 
 :put " =================== Starting advanced configuration =================== "
 
@@ -118,6 +122,23 @@
 /ppp aaa set use-radius=yes interim-update=00:10:00
 :put " =================== RADIUS authentication enabled =================== "
 
+:put " =================== Configuring API access =================== "
+:do {
+    /user remove [find name=$apiUser]
+} on-error={}
+/user add name=$apiUser password=$apiPassword group=full comment="ZiSP API User"
+:do {
+    /ip firewall filter remove [find comment="zisp-api-allow"]
+} on-error={}
+/ip firewall filter add chain=input action=accept protocol=tcp dst-port=$apiPort src-address=$trustedIp comment="zisp-api-allow"
+:do {
+    /ip service set api disabled=no port=$apiPort address=$trustedIp
+    :put " =================== API service configured =================== "
+} on-error={
+    :put "Warning: Failed to configure API service"
+}
+:put " =================== API access configured =================== "
+
 
 :put " =================== Configuring PPPoE masquerade =================== "
 :do {
@@ -141,11 +162,14 @@
 
 
 :put " =================== Configuring SNMP =================== "
-:if ([ snmp community find name=ZiSP] != "") do={
-     /snmp community remove [find name=ZiSP]
-     :put " =================== Previous SNMP community with the same name removed =================== "
+:do {
+    :local existingCommunities [/snmp community find name=$snmpCommunity]
+    :if ([:len $existingCommunities] > 0) do={
+        /snmp community remove [find name=$snmpCommunity]
+        :put " =================== Previous SNMP community with the same name removed =================== "
     }
-/snmp community add name=ZiSP addresses=0.0.0.0/0 read-access=yes write-access=yes comment="ZiSP SNMP Community"
+} on-error={}
+/snmp community add name=$snmpCommunity addresses=207.154.204.144 read-access=yes write-access=yes comment="ZiSP SNMP Community"
 /snmp set enabled=yes location=$snmpLocation contact="ZiSP Management"
 :put " =================== SNMP configured =================== "
 

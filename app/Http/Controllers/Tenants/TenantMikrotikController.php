@@ -727,8 +727,12 @@ class TenantMikrotikController extends Controller
             'router_id' => $router->id,
             'radius_ip' => $radius_ip,
             'radius_secret' => $radius_secret,
-            'snmp_community' => 'public', // TODO: Make configurable
-            'snmp_location' => 'ZiSP Network', // TODO: Make configurable
+            'snmp_community' => $router->name ? strtolower(str_replace(' ', '_', $router->name)) . '_snmp' : 'public',
+            'snmp_location' => 'ZiSP Network',
+            'api_port' => $router->api_port ?? 8728,
+            'username' => $router->router_username,
+            'router_password' => $router->router_password,
+            'trusted_ip' => $this->getTrustedIpForScripts(),
         ]);
 
         $router->logs()->create([
@@ -740,5 +744,25 @@ class TenantMikrotikController extends Controller
         return response($script)
             ->header('Content-Type', 'text/plain')
             ->header('Content-Disposition', "attachment; filename=advanced_config_router_{$router->id}.rsc");
+    }
+
+    /**
+     * Get trusted IP for scripts.
+     * This method is used to ensure consistent trusted IP across different script generations.
+     * It can be overridden by child classes if specific logic is needed.
+     */
+    protected function getTrustedIpForScripts()
+    {
+        $trustedIp = config('app.server_ip') ?? request()->server('SERVER_ADDR') ?? request()->ip();
+
+        if (!$trustedIp) {
+            return '0.0.0.0/0';
+        }
+
+        if (!str_contains($trustedIp, '/')) {
+            $trustedIp .= '/32';
+        }
+
+        return $trustedIp;
     }
 }
