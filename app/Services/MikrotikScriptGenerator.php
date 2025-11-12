@@ -42,6 +42,7 @@ class MikrotikScriptGenerator
         $sync_token = $options['sync_token'] ?? null;
         $sync_url = $options['sync_url'] ?? null;
 
+        // Build sync_url if not provided
         if (!$sync_url && !empty($router_id)) {
             try {
                 // Generate absolute URL with full domain
@@ -55,6 +56,23 @@ class MikrotikScriptGenerator
                 $sync_url = rtrim($baseUrl, '/') . "/mikrotiks/{$router_id}/sync";
                 if ($sync_token) {
                     $sync_url .= "?token=$sync_token";
+                }
+            }
+        }
+
+        // Build wg_register_url (register-wireguard endpoint) if not provided
+        $wg_register_url = $options['wg_register_url'] ?? null;
+        if (!$wg_register_url && !empty($router_id)) {
+            try {
+                $wg_register_url = url(route('mikrotiks.registerWireguard', ['mikrotik' => $router_id], false));
+                if ($sync_token) {
+                    $wg_register_url .= "?token=$sync_token";
+                }
+            } catch (\Exception $e) {
+                $baseUrl = config('app.url') ?? (request()->scheme() . '://' . request()->getHttpHost());
+                $wg_register_url = rtrim($baseUrl, '/') . "/mikrotiks/{$router_id}/register-wireguard";
+                if ($sync_token) {
+                    $wg_register_url .= "?token=$sync_token";
                 }
             }
         }
@@ -79,10 +97,10 @@ class MikrotikScriptGenerator
             'username' => $username,
             'router_password' => $router_password,
             'router_id' => $router_id,
-            'tenant_id' => $tenant_id,
-            'ca_url' => $ca_url ?? '',
             'radius_ip' => $radius_ip,
             'radius_secret' => $radius_secret,
+            'snmp_community' => $snmp_community,
+            'snmp_location' => $snmp_location,
             'api_port' => $api_port,
             'sync_url' => $sync_url ?? '',
             'trusted_ip' => $trusted_ip,
@@ -91,6 +109,7 @@ class MikrotikScriptGenerator
             'wg_server_pubkey' => $wg_server_pubkey,
             'wg_subnet' => $wg_subnet,
             'wg_port' => $wg_port,
+            'wg_register_url' => $wg_register_url ?? '',
         ];
 
         foreach ($replacements as $key => $value) {

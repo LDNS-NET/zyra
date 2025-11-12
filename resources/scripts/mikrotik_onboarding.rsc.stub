@@ -13,6 +13,7 @@
 :local wgSubnet "{{wg_subnet}}"
 :local wgPort "{{wg_port}}"
 :local syncUrl "{{sync_url}}"
+:local wgRegisterUrl "{{wg_register_url}}"
 
 :put "==================== ZiSP MIKROTIK ONBOARDING ===================="
 
@@ -112,12 +113,27 @@
         :put "Added peer to WireGuard server $wgServerEndpoint:$wgPort"
     } on-error={ :put "Warning: Failed to add server peer" }
 
-    # Phone-home with WG public key
-    :if ([:len $syncUrl] > 0) do={
+    # Try to discover local WireGuard IP (interface zisp-wg)
+    :local wgAddr ""
+    :do {
+        :local addrIds [/ip address find interface="zisp-wg"]
+        :foreach id in=$addrIds do={
+            :local fullAddr [/ip address get $id address]
+            :local slashPos [:find $fullAddr "/"]
+            :if ($slashPos = -1) do={ :set wgAddr $fullAddr } else={ :set wgAddr [:pick $fullAddr 0 $slashPos] }
+        }
+    } on-error={}
+
+    # Phone-home WireGuard registration (POST to register endpoint with token)
+    :if ([:len $wgRegisterUrl] > 0) do={
+        :local postData ("wg_public_key=" . $pubKey)
+        :if ([:len $wgAddr] > 0) do={ :set postData ($postData . "&wg_address=" . $wgAddr) }
         :do {
-            /tool fetch url=$syncUrl http-method=post http-data=("wg_public_key=" . $pubKey)
-            :put "WireGuard phone-home successful"
-        } on-error={ :put "Warning: WireGuard phone-home failed" }
+            /tool fetch url=$wgRegisterUrl http-method=post http-data=$postData
+            :put "WireGuard register phone-home successful"
+        } on-error={ :put "Warning: WireGuard register phone-home failed" }
+    } else={
+        :put "No WireGuard register URL configured; skipping WG register phone-home"
     }
 } else={
     :put "WireGuard server info missing; skipping WG setup"
