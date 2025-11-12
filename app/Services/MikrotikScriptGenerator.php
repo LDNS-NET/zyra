@@ -18,6 +18,8 @@ class MikrotikScriptGenerator
      *   - radius_secret: RADIUS shared secret (optional)
      *   - sync_token: Router sync token (optional)
      *   - trusted_ip: Trusted IP for API/SSH/Winbox access (optional)
+     *   - snmp_community: SNMP community name (optional)
+     *   - snmp_location: SNMP location (optional)
      * @return string
      */
     public function generate(array $options): string
@@ -42,16 +44,18 @@ class MikrotikScriptGenerator
         $sync_token = $options['sync_token'] ?? null;
         $sync_url = $options['sync_url'] ?? null;
 
+        // SNMP defaults
+        $snmp_community = $options['snmp_community'] ?? 'public';
+        $snmp_location  = $options['snmp_location'] ?? 'ZiSP Network';
+
         // Build sync_url if not provided
         if (!$sync_url && !empty($router_id)) {
             try {
-                // Generate absolute URL with full domain
                 $sync_url = url(route('mikrotiks.sync', ['mikrotik' => $router_id], false));
                 if ($sync_token) {
                     $sync_url .= "?token=$sync_token";
                 }
             } catch (\Exception $e) {
-                // Fallback: use config app.url or request URL
                 $baseUrl = config('app.url') ?? (request()->scheme() . '://' . request()->getHttpHost());
                 $sync_url = rtrim($baseUrl, '/') . "/mikrotiks/{$router_id}/sync";
                 if ($sync_token) {
@@ -60,7 +64,7 @@ class MikrotikScriptGenerator
             }
         }
 
-        // Build wg_register_url (register-wireguard endpoint) if not provided
+        // Build wg_register_url if not provided
         $wg_register_url = $options['wg_register_url'] ?? null;
         if (!$wg_register_url && !empty($router_id)) {
             try {
@@ -77,14 +81,12 @@ class MikrotikScriptGenerator
             }
         }
 
-        // Get trusted IP (server IP) - use request IP or config
         $trusted_ip = $options['trusted_ip'] ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
 
-        // WireGuard server settings (allow override via $options)
         $wg_server_endpoint = $options['wg_server_endpoint'] ?? config('wireguard.server_endpoint') ?? env('WG_SERVER_ENDPOINT', '');
-        $wg_server_pubkey = $options['wg_server_pubkey'] ?? config('wireguard.server_public_key') ?? env('WG_SERVER_PUBLIC_KEY', '');
-        $wg_subnet = $options['wg_subnet'] ?? config('wireguard.subnet') ?? env('WG_SUBNET', '10.254.0.0/16');
-        $wg_port = $options['wg_port'] ?? config('wireguard.server_port') ?? env('WG_SERVER_PORT', 51820);
+        $wg_server_pubkey  = $options['wg_server_pubkey'] ?? config('wireguard.server_public_key') ?? env('WG_SERVER_PUBLIC_KEY', '');
+        $wg_subnet         = $options['wg_subnet'] ?? config('wireguard.subnet') ?? env('WG_SUBNET', '10.254.0.0/16');
+        $wg_port           = $options['wg_port'] ?? config('wireguard.server_port') ?? env('WG_SERVER_PORT', 51820);
 
         // Load stub template
         $templatePath = resource_path('scripts/mikrotik_onboarding.rsc.stub');
@@ -104,7 +106,6 @@ class MikrotikScriptGenerator
             'api_port' => $api_port,
             'sync_url' => $sync_url ?? '',
             'trusted_ip' => $trusted_ip,
-            // WireGuard placeholders
             'wg_server_endpoint' => $wg_server_endpoint,
             'wg_server_pubkey' => $wg_server_pubkey,
             'wg_subnet' => $wg_subnet,
@@ -121,16 +122,6 @@ class MikrotikScriptGenerator
 
     /**
      * Generate advanced configuration script for Mikrotik routers.
-     * This script configures: Bridge, DHCP, Hotspot, PPPoE, SNMP, etc.
-     *
-     * @param array $options
-     *   - name: Router name
-     *   - router_id: Router database ID
-     *   - radius_ip: RADIUS server IP (optional)
-     *   - radius_secret: RADIUS shared secret (optional)
-     *   - snmp_community: SNMP community name (optional)
-     *   - snmp_location: SNMP location (optional)
-     * @return string
      */
     public function generateAdvancedConfig(array $options): string
     {
@@ -139,18 +130,16 @@ class MikrotikScriptGenerator
         $radius_ip = $options['radius_ip'] ?? '207.154.204.144';
         $radius_secret = $options['radius_secret'] ?? 'ZyraafSecret123';
         $snmp_community = $options['snmp_community'] ?? 'public';
-        $snmp_location = $options['snmp_location'] ?? 'ZiSP Network';
+        $snmp_location  = $options['snmp_location'] ?? 'ZiSP Network';
         $api_port = $options['api_port'] ?? '8728';
         $username = $options['username'] ?? 'apiuser';
         $router_password = $options['router_password'] ?? 'apipassword';
         $trusted_ip = $options['trusted_ip'] ?? '0.0.0.0/0';
 
-        // Load stub template
         $templatePath = resource_path('scripts/mikrotik_advanced_config.rsc.stub');
         $template = file_exists($templatePath) ? file_get_contents($templatePath) : '';
         if (!$template) return '';
 
-        // Replace placeholders in the template
         $replacements = [
             'name' => $name,
             'router_id' => $router_id,
