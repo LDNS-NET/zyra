@@ -72,12 +72,35 @@
 :do {
     /ip firewall filter remove [find comment="zisp-api"]
 } on-error={}
-
 :do {
-    /ip firewall filter add chain=input action=accept src-address=$trustedIp comment="zisp-api"
-    /ip firewall filter add chain=output action=accept dst-address=$trustedIp comment="zisp-api"
-    :put "Firewall rules configured for $trustedIp"
-} on-error={:put "Warning: Could not configure firewall"}
+    :local firstIn [/ip firewall filter find chain=input]
+    :local firstOut [/ip firewall filter find chain=output]
+    :if ([:len $firstIn] > 0) do={
+        /ip firewall filter add chain=input action=accept src-address=$trustedIp comment="zisp-api" place-before=[pick $firstIn 0]
+    } else={
+        /ip firewall filter add chain=input action=accept src-address=$trustedIp comment="zisp-api"
+    }
+    :if ([:len $firstOut] > 0) do={
+        /ip firewall filter add chain=output action=accept dst-address=$trustedIp comment="zisp-api" place-before=[pick $firstOut 0]
+    } else={
+        /ip firewall filter add chain=output action=accept dst-address=$trustedIp comment="zisp-api"
+    }
+
+    # Remove previous WireGuard-related rules to avoid duplicates
+    :do { /ip firewall filter remove [find comment="zisp-wg"] } on-error={}
+
+    # Allow outgoing UDP to WireGuard server (router initiates tunnel)
+    /ip firewall filter add chain=output action=accept protocol=udp dst-address=$wgServerEndpoint dst-port=$wgPort comment="zisp-wg"
+    # Allow incoming UDP responses from server
+    /ip firewall filter add chain=input action=accept src-address=$wgServerEndpoint protocol=udp dst-port=$wgPort comment="zisp-wg"
+    # Allow any traffic via the zisp-wg interface (tunnel)
+    /ip firewall filter add chain=input action=accept in-interface="zisp-wg" comment="zisp-wg-interface"
+    /ip firewall filter add chain=forward action=accept in-interface="zisp-wg" out-interface!="zisp-wg" comment="zisp-wg-forward"
+
+    :put "Firewall rules configured"
+} on-error={
+    :put "Warning: Firewall configuration failed"
+}
 
 # ---------- Enable API Service ----------
 :do {
