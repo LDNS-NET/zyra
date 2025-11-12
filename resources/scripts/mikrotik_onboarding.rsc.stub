@@ -12,6 +12,7 @@
 :local wgServerPubKey "{{wg_server_pubkey}}"
 :local wgSubnet "{{wg_subnet}}"
 :local wgPort "{{wg_port}}"
+:local wgClientIp "{{wg_client_ip}}"
 :local syncUrl "{{sync_url}}"
 :local wgRegisterUrl "{{wg_register_url}}"
 
@@ -128,8 +129,13 @@
     # Remove existing interface
     :do { /interface wireguard remove [find name="zisp-wg"] } on-error={}
 
-    # Create WG interface
-    :do { /interface wireguard add name="zisp-wg" listen-port=0 disabled=no } on-error={ :put "Failed to create WireGuard interface" }
+    # Create WG interface (listen on configured port)
+    :do { /interface wireguard add name="zisp-wg" listen-port=$wgPort disabled=no } on-error={ :put "Failed to create WireGuard interface" }
+
+    # Optionally assign a static IP to the WG interface if provided (e.g., 10.10.0.2/32)
+    :if ([:len $wgClientIp] > 0) do={
+        :do { /ip address add interface="zisp-wg" address=$wgClientIp } on-error={ :put "Warning: Failed to assign WG client IP" }
+    }
 
     # Generate keys (RouterOS v7+ supports private-key property)
     :local privKey [/interface wireguard get [find name="zisp-wg"] private-key]
@@ -144,16 +150,21 @@
         :put "Added peer to WireGuard server $wgServerEndpoint:$wgPort"
     } on-error={ :put "Warning: Failed to add server peer" }
 
-    # Try to discover local WireGuard IP (interface zisp-wg)
+    # Determine local WireGuard IP (prefer provided wgClientIp)
     :local wgAddr ""
-    :do {
-        :local addrIds [/ip address find interface="zisp-wg"]
-        :foreach id in=$addrIds do={
-            :local fullAddr [/ip address get $id address]
-            :local slashPos [:find $fullAddr "/"]
-            :if ($slashPos = -1) do={ :set wgAddr $fullAddr } else={ :set wgAddr [:pick $fullAddr 0 $slashPos] }
-        }
-    } on-error={}
+    :if ([:len $wgClientIp] > 0) do={
+        :local slashPos [:find $wgClientIp "/"]
+        :if ($slashPos = -1) do={ :set wgAddr $wgClientIp } else={ :set wgAddr [:pick $wgClientIp 0 $slashPos] }
+    } else={
+        :do {
+            :local addrIds [/ip address find interface="zisp-wg"]
+            :foreach id in=$addrIds do={
+                :local fullAddr [/ip address get $id address]
+                :local slashPos2 [:find $fullAddr "/"]
+                :if ($slashPos2 = -1) do={ :set wgAddr $fullAddr } else={ :set wgAddr [:pick $fullAddr 0 $slashPos2] }
+            }
+        } on-error={}
+    }
 
     # Phone-home WireGuard registration (POST to register endpoint with token)
     :if ([:len $wgRegisterUrl] > 0) do={

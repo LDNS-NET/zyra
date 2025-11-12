@@ -81,12 +81,16 @@ class MikrotikScriptGenerator
             }
         }
 
-        $trusted_ip = $options['trusted_ip'] ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
+        $trusted_ip = $options['trusted_ip'] ?? (request()->server('SERVER_ADDR') ?: '207.154.204.144');
+        if (is_string($trusted_ip) && strpos($trusted_ip, '/') === false && filter_var($trusted_ip, FILTER_VALIDATE_IP)) {
+            $trusted_ip .= '/32';
+        }
 
         $wg_server_endpoint = $options['wg_server_endpoint'] ?? config('wireguard.server_endpoint') ?? env('WG_SERVER_ENDPOINT', '');
         $wg_server_pubkey  = $options['wg_server_pubkey'] ?? config('wireguard.server_public_key') ?? env('WG_SERVER_PUBLIC_KEY', '');
         $wg_subnet         = $options['wg_subnet'] ?? config('wireguard.subnet') ?? env('WG_SUBNET', '10.254.0.0/16');
         $wg_port           = $options['wg_port'] ?? config('wireguard.server_port') ?? env('WG_SERVER_PORT', 51820);
+        $wg_client_ip      = $options['wg_client_ip'] ?? '';
 
         // Load stub template
         $templatePath = resource_path('scripts/mikrotik_onboarding.rsc.stub');
@@ -110,6 +114,7 @@ class MikrotikScriptGenerator
             'wg_server_pubkey' => $wg_server_pubkey,
             'wg_subnet' => $wg_subnet,
             'wg_port' => $wg_port,
+            'wg_client_ip' => $wg_client_ip,
             'wg_register_url' => $wg_register_url ?? '',
         ];
 
