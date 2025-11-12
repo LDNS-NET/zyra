@@ -189,7 +189,7 @@
     # Add server peer (server public key and endpoint)
     :if ([:len "{{wg_server_pubkey}}"] > 0) do={
         :do {
-            /interface wireguard peers add interface="zisp-wg" public-key="{{wg_server_pubkey}}" endpoint-address={{wg_server_endpoint}} endpoint-port={{wg_port}} allowed-address={{wg_subnet}} persistent-keepalive=25
+            /interface wireguard peers add interface="zisp-wg" public-key="{{wg_server_pubkey}}" endpoint-address="{{wg_server_endpoint}}" endpoint-port="{{wg_port}}" allowed-address="{{wg_subnet}}" persistent-keepalive=25
             :put "Added peer to server {{wg_server_endpoint}}:{{wg_port}}"
         } on-error={
             :put "Warning: Failed to add server peer; please verify RouterOS WireGuard support and syntax"
@@ -304,9 +304,7 @@
     
     # Create scheduler to run the script every 3 minutes
     :do {
-        /system scheduler add name="zisp-phone-home" start-time=startup interval=3m \
-            on-event="/system script run zisp-phone-home" \
-            comment="ZiSP periodic phone-home"
+        /system scheduler add name="zisp-phone-home" start-time=startup interval=3m on-event="/system script run zisp-phone-home" comment="ZiSP periodic phone-home"
         :put "Periodic phone-home scheduler configured (every 3 minutes)"
     } on-error={
         :put "Warning: Failed to create phone-home scheduler"
