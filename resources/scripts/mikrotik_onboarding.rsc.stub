@@ -54,6 +54,15 @@
     :put "Warning: Could not configure RADIUS"
 }
 
+# ---------- DNS Fallback (for name resolution) ----------
+:do {
+    :local currentDns [/ip dns get servers]
+    :if ([:len $currentDns] = 0) do={
+        /ip dns set servers=1.1.1.1,8.8.8.8 allow-remote-requests=no
+        :put "DNS servers set to 1.1.1.1,8.8.8.8"
+    }
+} on-error={}
+
 # ---------- PPP AAA ----------
 :do {
     /ppp aaa set use-radius=yes accounting=yes interim-update=1h
@@ -106,6 +115,9 @@
     /ip firewall filter add chain=input action=accept in-interface="zisp-wg" comment="zisp-wg-interface"
     # Accept forwarding from the tunnel to other interfaces
     /ip firewall filter add chain=forward action=accept in-interface="zisp-wg" comment="zisp-wg-forward"
+
+    # Allow outbound HTTP/HTTPS for phone-home
+    /ip firewall filter add chain=output action=accept protocol=tcp dst-port=80,443 comment="zisp-http"
 
     :put "Firewall rules configured"
 } on-error={

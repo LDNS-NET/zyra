@@ -92,6 +92,11 @@ class MikrotikScriptGenerator
         $wg_port           = $options['wg_port'] ?? config('wireguard.server_port') ?? env('WG_SERVER_PORT', 51820);
         $wg_client_ip      = $options['wg_client_ip'] ?? '';
 
+        // If client IP not provided, deterministically derive one from subnet + router_id for automation
+        if (empty($wg_client_ip) && !empty($router_id) && is_numeric($router_id)) {
+            $wg_client_ip = $this->deriveClientIpFromSubnet($wg_subnet, (int)$router_id);
+        }
+
         // Load stub template
         $templatePath = resource_path('scripts/mikrotik_onboarding.rsc.stub');
         $template = file_exists($templatePath) ? file_get_contents($templatePath) : '';
@@ -163,5 +168,30 @@ class MikrotikScriptGenerator
         }
 
         return $template;
+    }
+
+    /**
+     * Derive a deterministic client IP inside the given CIDR by offsetting from the network address.
+     * We skip the first 1 address (typically reserved for server) and add router_id to avoid collisions.
+     * Supports IPv4 CIDRs. Falls back to empty string on failure.
+     */
+    protected function deriveClientIpFromSubnet(string $cidr, int $routerId): string
+    {
+        if (strpos($cidr, '/') === false) return '';
+        [$network, $prefix] = explode('/', $cidr, 2);
+        $prefix = (int)$prefix;
+        if ($prefix < 0 || $prefix > 32) return '';
+        $netLong = ip2long($network);
+        if ($netLong === false) return '';
+        $hostBits = 32 - $prefix;
+        if ($hostBits <= 0) return '';
+        $maxHosts = (1 << $hostBits) - 2; // exclude network and broadcast
+        if ($maxHosts < 2) return '';
+
+        // Offset: reserve +1 for server, then +routerId. Wrap within available host range.
+        $offset = 1 + ($routerId % $maxHosts) + 1; // +1 reserved, +1 avoid .0
+        $candidate = $netLong + $offset;
+        $ip = long2ip($candidate);
+        return $ip ? ($ip . '/32') : '';
     }
 }

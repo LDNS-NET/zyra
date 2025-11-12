@@ -498,11 +498,38 @@ class TenantMikrotikController extends Controller
                 return response()->json(['success' => false, 'message' => 'Invalid wg_public_key'], 422);
             }
 
-            // Store public key and optional address and mark pending
+            // Store public key and address (derive if missing) and mark pending
             $router->wireguard_public_key = $wgPublicKey;
+            $assignedAddress = null;
             if ($wgAddress && filter_var($wgAddress, FILTER_VALIDATE_IP)) {
-                $router->wireguard_address = $wgAddress;
-                $router->wireguard_allowed_ips = $wgAddress . '/32';
+                $assignedAddress = $wgAddress;
+            } else {
+                // Derive deterministic client IP from configured WG_SUBNET and router id
+                $subnet = config('wireguard.subnet') ?? env('WG_SUBNET', '10.254.0.0/16');
+                if (strpos($subnet, '/') !== false) {
+                    [$network, $prefix] = explode('/', $subnet, 2);
+                    $prefix = (int)$prefix;
+                    $netLong = ip2long($network);
+                    if ($netLong !== false && $prefix >= 0 && $prefix <= 32) {
+                        $hostBits = 32 - $prefix;
+                        if ($hostBits > 0) {
+                            $maxHosts = (1 << $hostBits) - 2;
+                            if ($maxHosts > 1) {
+                                $offset = 2 + ($router->id % $maxHosts); // reserve .1, start from .2
+                                $candidate = $netLong + $offset;
+                                $ip = long2ip($candidate);
+                                if ($ip) {
+                                    $assignedAddress = $ip;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if ($assignedAddress) {
+                $router->wireguard_address = $assignedAddress;
+                $router->wireguard_allowed_ips = $assignedAddress . '/32';
             }
             $router->wireguard_status = 'pending';
             $router->save();
