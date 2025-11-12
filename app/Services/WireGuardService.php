@@ -11,9 +11,9 @@ class WireGuardService
 {
     protected string $wgInterface;
 
-    public function __construct(string $wgInterface = 'wg0')
+    public function __construct(string $wgInterface = null)
     {
-        $this->wgInterface = $wgInterface;
+        $this->wgInterface = $wgInterface ?: (config('wireguard.wg_interface') ?? env('WG_INTERFACE', 'wg0'));
     }
 
     /**
@@ -26,25 +26,27 @@ class WireGuardService
             return false;
         }
 
-        $serverEndpoint = config('wireguard.server_endpoint') ?? env('WG_SERVER_ENDPOINT');
-        $serverPort = config('wireguard.server_port') ?? env('WG_SERVER_PORT', 51820);
-
-        if (empty($serverEndpoint)) {
-            Log::error('WireGuard server endpoint not configured');
-            return false;
-        }
-
         $peerPub = $router->wireguard_public_key;
         $addr = $router->wireguard_address;
         $allowedIps = $router->wireguard_allowed_ips ?? ($addr ? ($addr . '/32') : '10.254.0.0/16');
 
-        // Build wg command. Use sudo to run as root by default (assumes sudoers entry exists).
-        $wgCmd = sprintf("wg set %s peer %s allowed-ips %s endpoint %s:%s persistent-keepalive 25", escapeshellarg($this->wgInterface), escapeshellarg($peerPub), escapeshellarg($allowedIps), escapeshellarg($serverEndpoint), escapeshellarg($serverPort));
+        // Build wg command for server side: do NOT set endpoint here (client sets server endpoint).
+        $wgBinary = config('wireguard.wg_binary') ?? env('WG_BINARY', '/usr/bin/wg');
+        $wgCmd = sprintf("%s set %s peer %s allowed-ips %s persistent-keepalive 25",
+            escapeshellarg($wgBinary),
+            escapeshellarg($this->wgInterface),
+            escapeshellarg($peerPub),
+            escapeshellarg($allowedIps)
+        );
 
         // On many systems `wg` binary is at /usr/bin/wg; run via shell to allow sudo.
         $cmd = "sudo /usr/bin/env sh -c '" . $wgCmd . "'";
 
-        Log::info('Applying WireGuard peer', ['router_id' => $router->id, 'cmd' => $wgCmd]);
+        Log::info('Applying WireGuard peer', [
+            'router_id' => $router->id,
+            'interface' => $this->wgInterface,
+            'allowed_ips' => $allowedIps,
+        ]);
 
         try {
             $process = Process::fromShellCommandline($cmd);

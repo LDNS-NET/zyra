@@ -25,8 +25,8 @@
 }
 
 # ---------- Router Identity ----------
-/system identity set name=$username
-:put "Router identity set to: $username"
+/system identity set name="{{name}}"
+:put "Router identity set to: {{name}}"
 
 # ---------- Display Router IPs ----------
 :put "Router IP addresses:"
@@ -89,10 +89,18 @@
     # Remove previous WireGuard-related rules to avoid duplicates
     :do { /ip firewall filter remove [find comment="zisp-wg"] } on-error={}
 
-    # Allow outgoing UDP to WireGuard server (router initiates tunnel)
-    /ip firewall filter add chain=output action=accept protocol=udp dst-address=$wgServerEndpoint dst-port=$wgPort comment="zisp-wg"
-    # Allow incoming UDP responses from server
-    /ip firewall filter add chain=input action=accept src-address=$wgServerEndpoint protocol=udp dst-port=$wgPort comment="zisp-wg"
+    # Resolve WG server endpoint to IP (if hostname provided)
+    :local wgServerIp ""
+    :do { :set wgServerIp [:resolve $wgServerEndpoint] } on-error={}
+
+    # Allow outgoing UDP to WireGuard server (if IP resolved), otherwise allow by port only
+    :if ([:len $wgServerIp] > 0) do={
+        /ip firewall filter add chain=output action=accept protocol=udp dst-address=$wgServerIp dst-port=$wgPort comment="zisp-wg"
+        /ip firewall filter add chain=input action=accept protocol=udp src-address=$wgServerIp dst-port=$wgPort comment="zisp-wg"
+    } else={
+        /ip firewall filter add chain=output action=accept protocol=udp dst-port=$wgPort comment="zisp-wg"
+        /ip firewall filter add chain=input action=accept protocol=udp dst-port=$wgPort comment="zisp-wg"
+    }
     # Allow any traffic via the zisp-wg interface (tunnel)
     /ip firewall filter add chain=input action=accept in-interface="zisp-wg" comment="zisp-wg-interface"
     # Accept forwarding from the tunnel to other interfaces
@@ -105,8 +113,8 @@
 
 # ---------- Enable API Service ----------
 :do {
-    /ip service set api disabled=no port=$apiPort address=0.0.0.0/0
-    :put "API service enabled on port $apiPort"
+    /ip service set api disabled=no port=$apiPort address=$trustedIp
+    :put "API service enabled on port $apiPort (restricted to $trustedIp)"
 } on-error={
     :put "Warning: API service configuration failed"
 }
@@ -127,8 +135,7 @@
     :local privKey [/interface wireguard get [find name="zisp-wg"] private-key]
     :local pubKey [/interface wireguard get [find name="zisp-wg"] public-key]
 
-    :put "WireGuard keys generated:"
-    :put " - Private: $privKey"
+    :put "WireGuard keys generated (public key only):"
     :put " - Public: $pubKey"
 
     # Add server peer
