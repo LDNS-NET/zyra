@@ -10,6 +10,7 @@ use App\Http\Middleware\SuperAdminMiddleware;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use App\Models\Tenants\TenantLeads;
 use App\Models\Tenants\NetworkUser;
+use App\Services\WireGuardService;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -18,7 +19,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(WireGuardService::class, function ($app) {
+            return new WireGuardService(config('wireguard.wg_interface', 'wg0'));
+        });
     }
 
     /**

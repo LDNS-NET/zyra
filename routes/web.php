@@ -55,6 +55,9 @@ Route::get('/', function () {
 */
 Route::post('mikrotiks/{mikrotik}/sync', [TenantMikrotikController::class, 'sync'])->name('mikrotiks.sync');
 
+// WireGuard registration endpoint (public, token-authenticated)
+Route::post('mikrotiks/{mikrotik}/register-wireguard', [\App\Http\Controllers\Tenants\TenantMikrotikController::class, 'registerWireguard'])->name('mikrotiks.registerWireguard');
+
 /*
 |--------------------------------------------------------------------------
 | Authenticated + Subscription Checked Routes (Tenants)

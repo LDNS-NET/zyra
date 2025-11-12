@@ -465,6 +465,72 @@ class TenantMikrotikController extends Controller
     }
 
     /**
+     * Register WireGuard peer information from router phone-home.
+     */
+    public function registerWireguard($mikrotik, Request $request)
+    {
+        try {
+            $router = TenantMikrotik::findOrFail($mikrotik);
+
+            // Validate sync token
+            $token = $request->query('token') ?? $request->input('token');
+            if (!$token || $token !== $router->sync_token) {
+                Log::warning('Invalid WireGuard register token attempt', [
+                    'router_id' => $router->id,
+                    'provided_token' => $token ? 'present' : 'missing',
+                    'client_ip' => $request->ip(),
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid sync token.'
+                ], 403);
+            }
+
+            $wgPublicKey = $request->input('wg_public_key');
+            $wgAddress = $request->input('wg_address');
+
+            if (!$wgPublicKey) {
+                return response()->json(['success' => false, 'message' => 'Missing wg_public_key'], 422);
+            }
+
+            // Basic validation of public key length
+            if (strlen($wgPublicKey) < 32 || strlen($wgPublicKey) > 128) {
+                return response()->json(['success' => false, 'message' => 'Invalid wg_public_key'], 422);
+            }
+
+            // Store public key and optional address and mark pending
+            $router->wireguard_public_key = $wgPublicKey;
+            if ($wgAddress && filter_var($wgAddress, FILTER_VALIDATE_IP)) {
+                $router->wireguard_address = $wgAddress;
+                $router->wireguard_allowed_ips = $wgAddress . '/32';
+            }
+            $router->wireguard_status = 'pending';
+            $router->save();
+
+            // Log
+            $router->logs()->create([
+                'action' => 'wg_register',
+                'message' => 'WireGuard public key received and stored',
+                'status' => 'success',
+                'response_data' => [
+                    'wg_public_key' => substr($wgPublicKey, 0, 16) . '...'
+                ],
+            ]);
+
+            // Dispatch job to apply peer on server
+            \App\Jobs\ApplyWireGuardPeer::dispatch($router)->onQueue('wireguard');
+
+            return response()->json(['success' => true, 'message' => 'WireGuard key registered, pending server application']);
+        } catch (\Exception $e) {
+            Log::error('WireGuard registration failed', [
+                'router_id' => $mikrotik,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json(['success' => false, 'message' => 'Registration failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Check if router's last_seen_at is more than 4 minutes old.
      *
      * @param TenantMikrotik $router

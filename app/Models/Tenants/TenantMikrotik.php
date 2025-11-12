@@ -29,6 +29,13 @@ class TenantMikrotik extends Model
         'notes',
         'sync_token',
         'created_by',
+        // WireGuard fields
+        'wireguard_public_key',
+        'wireguard_allowed_ips',
+        'wireguard_address',
+        'wireguard_port',
+        'wireguard_status',
+        'wireguard_last_handshake',
     ];
 
     protected $casts = [
@@ -37,6 +44,8 @@ class TenantMikrotik extends Model
         'cpu_usage' => 'decimal:2',
         'memory_usage' => 'decimal:2',
         'temperature' => 'decimal:2',
+        // WireGuard handshake timestamp
+        'wireguard_last_handshake' => 'datetime',
     ];
 
     protected $hidden = [

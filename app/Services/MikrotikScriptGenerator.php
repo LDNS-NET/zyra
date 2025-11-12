@@ -62,6 +62,12 @@ class MikrotikScriptGenerator
         // Get trusted IP (server IP) - use request IP or config
         $trusted_ip = $options['trusted_ip'] ?? request()->server('SERVER_ADDR') ?? '207.154.204.144';
 
+        // WireGuard server settings (allow override via $options)
+        $wg_server_endpoint = $options['wg_server_endpoint'] ?? config('wireguard.server_endpoint') ?? env('WG_SERVER_ENDPOINT', '');
+        $wg_server_pubkey = $options['wg_server_pubkey'] ?? config('wireguard.server_public_key') ?? env('WG_SERVER_PUBLIC_KEY', '');
+        $wg_subnet = $options['wg_subnet'] ?? config('wireguard.subnet') ?? env('WG_SUBNET', '10.254.0.0/16');
+        $wg_port = $options['wg_port'] ?? config('wireguard.server_port') ?? env('WG_SERVER_PORT', 51820);
+
         // Load stub template
         $templatePath = resource_path('scripts/mikrotik_onboarding.rsc.stub');
         $template = file_exists($templatePath) ? file_get_contents($templatePath) : '';
@@ -80,6 +86,11 @@ class MikrotikScriptGenerator
             'api_port' => $api_port,
             'sync_url' => $sync_url ?? '',
             'trusted_ip' => $trusted_ip,
+            // WireGuard placeholders
+            'wg_server_endpoint' => $wg_server_endpoint,
+            'wg_server_pubkey' => $wg_server_pubkey,
+            'wg_subnet' => $wg_subnet,
+            'wg_port' => $wg_port,
         ];
 
         foreach ($replacements as $key => $value) {
